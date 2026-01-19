@@ -10,6 +10,27 @@ class RequestController {
         $this->pdo = Database::getPdo();
     }
 
+    private function currentUserRoleName() {
+        $uid = getCurrentUserId();
+        $stmt = $this->pdo->prepare("
+            SELECT r.nom
+            FROM utilisateurs u
+            JOIN roles r ON r.id = u.role_id
+            WHERE u.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([(int)$uid]);
+        $role = $stmt->fetchColumn();
+        return $role ?: null;
+    }
+
+    private function requireManagerOrAdmin() {
+        $role = $this->currentUserRoleName();
+        if ($role !== 'manager' && $role !== 'admin') {
+            respondJson(['error' => 'Accès interdit'], 403);
+        }
+    }
+
     // GET /api/requests?user_id=&status=
     public function listRequests($query) {
         $sql = "SELECT r.*, u.nom_complet as requester_name, t.nom as type_name
@@ -80,8 +101,45 @@ class RequestController {
         respondJson(['ok' => true, 'id' => $id], 201);
     }
 
+    // POST /api/login
+public function login($data) {
+    if (empty($data['email']) || empty($data['password'])) {
+        respondJson(['error' => 'Email et mot de passe requis'], 400);
+    }
+
+    $stmt = $this->pdo->prepare("SELECT id, nom_complet, email, mot_de_passe, role_id FROM utilisateurs WHERE email = ?");
+    $stmt->execute([$data['email']]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        respondJson(['error' => 'Identifiants incorrects'], 401);
+    }
+    // Vérifier le mot de passe
+    if (empty($user['mot_de_passe']) || !password_verify($data['password'], $user['mot_de_passe'])) {
+        respondJson(['error' => 'Identifiants incorrects'], 401);
+    }
+
+    // Récupérer le nom du rôle
+    $stmtRole = $this->pdo->prepare("SELECT nom FROM roles WHERE id = ?");
+    $stmtRole->execute([$user['role_id']]);
+    $role = $stmtRole->fetch();
+
+    respondJson([
+        'ok' => true,
+        'user' => [
+            'id' => $user['id'],
+            'nom_complet' => $user['nom_complet'],
+            'email' => $user['email'],
+            'role' => $role['nom'] ?? 'employe'
+        ]
+    ]);
+}
+
     // PATCH /api/requests/:id/status
     public function updateStatus($id, $payload) {
+        // Seuls manager/admin peuvent valider/refuser/annuler
+        $this->requireManagerOrAdmin();
+
         $allowed = ['validee', 'refusee', 'annulee'];
         if (empty($payload['status']) || !in_array($payload['status'], $allowed)) {
             respondJson(['error' => 'statut invalide'], 400);

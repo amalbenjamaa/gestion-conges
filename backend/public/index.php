@@ -1,6 +1,7 @@
 <?php
 // backend/public/index.php
 require_once __DIR__ . '/../src/RequestController.php';
+require_once __DIR__ . '/../src/AuthController.php';
 require_once __DIR__ . '/../src/Helpers.php';
 
 // CORS (autoriser le frontend local)
@@ -14,8 +15,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $relative = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $ctrl = new RequestController();
+$auth = new AuthController();
 $method = $_SERVER['REQUEST_METHOD'];
 $segments = array_values(array_filter(explode('/', $relative)));
+
+if ($method === 'POST' && $relative === '/api/login') {
+    $data = getJsonInput();
+    $auth->login($data);
+}
 
 if (count($segments) >= 2 && $segments[0] === 'api' && $segments[1] === 'requests') {
     if ($method === 'GET' && count($segments) === 2) {
