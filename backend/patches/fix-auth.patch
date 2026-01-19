@@ -1,0 +1,271 @@
+*** Begin Patch
+*** Add File: backend/patches/0001-remove-hardcoded-userid-and-require-auth.patch
+*** End Patch
+*** Begin Patch
+*** Update File: backend/src/Helpers.php
+@@
+ <?php
+ // backend/src/Helpers.php
+ 
+ function respondJson($data, $status = 200) {
+     http_response_code($status);
+     header('Content-Type: application/json; charset=utf-8');
+     echo json_encode($data, JSON_UNESCAPED_UNICODE);
+     exit;
+ }
+ 
+ function getJsonInput() {
+     $input = file_get_contents('php://input');
+     return json_decode($input, true) ?? [];
+ }
+ 
+ function daysBetweenInclusive($start, $end) {
+     $d1 = new DateTime($start);
+     $d2 = new DateTime($end);
+     if ($d2 < $d1) return 0;
+     $diff = $d2->diff($d1);
+     return $diff->days + 1;
+ }
+ 
+ function getCurrentUserId() {
+-    $headers = function_exists('getallheaders') ? getallheaders() : [];
+-    if (isset($headers['X-User-Id'])) return (int)$headers['X-User-Id'];
+-    if (isset($headers['x-user-id'])) return (int)$headers['x-user-id'];
+-    return 1; // fallback pour dev
++    $headers = function_exists('getallheaders') ? getallheaders() : [];
++
++    // Support Authorization: Bearer <id> (simple fallback for dev) or X-User-Id header.
++    if (isset($headers['Authorization'])) {
++        if (preg_match('/Bearer\s+(\d+)/i', $headers['Authorization'], $m)) {
++            return (int)$m[1];
++        }
++    }
++    if (isset($headers['authorization'])) {
++        if (preg_match('/Bearer\s+(\d+)/i', $headers['authorization'], $m)) {
++            return (int)$m[1];
++        }
++    }
++    if (isset($headers['X-User-Id'])) return (int)$headers['X-User-Id'];
++    if (isset($headers['x-user-id'])) return (int)$headers['x-user-id'];
++
++    // No user information provided — return null instead of falling back to 1.
++    return null;
+ }
++
++/**
++ * Require an authenticated user; if none, respond with 401 and exit.
++ * Returns the current user id (int).
++ */
++function requireAuth() {
++    $uid = getCurrentUserId();
++    if (!$uid) {
++        respondJson(['error' => 'Authentification requise'], 401);
++    }
++    return (int)$uid;
++}
+*** End Patch
+*** Begin Patch
+*** Update File: backend/src/RequestController.php
+@@
+         $stmt = $this->pdo->prepare("INSERT INTO demandes (utilisateur_id, type_id, date_debut, date_fin, nb_jours, motif, piece_jointe_id, statut) VALUES (?, ?, ?, ?, ?, ?, NULL, 'en_attente')");
+-        $stmt->execute([
+-            (int)$data['utilisateur_id'],
+-            (int)$data['type_id'],
+-            $start,
+-            $end,
+-            $days,
+-            $data['motif'] ?? null
+-        ]);
++        // Use authenticated user id instead of trusting client-provided utilisateur_id
++        $userId = getCurrentUserId();
++        if (!$userId) {
++            respondJson(['error' => 'Authentification requise'], 401);
++        }
++        $stmt->execute([
++            (int)$userId,
++            (int)$data['type_id'],
++            $start,
++            $end,
++            $days,
++            $data['motif'] ?? null
++        ]);
+         $id = $this->pdo->lastInsertId();
+ 
+-        $this->pdo->prepare("INSERT INTO audit_demandes (demande_id, action, fait_par, commentaire) VALUES (?, 'creation', ?, ?)")->execute([$id, getCurrentUserId(), null]);
++        $this->pdo->prepare("INSERT INTO audit_demandes (demande_id, action, fait_par, commentaire) VALUES (?, 'creation', ?, ?)")->execute([$id, $userId, null]);
+ 
+         respondJson(['ok' => true, 'id' => $id], 201);
+     }
+ 
+     // POST /api/login
+ public function login($data) {
+@@
+     }
+ 
+     // PATCH /api/requests/:id/status
+     public function updateStatus($id, $payload) {
+         // Seuls manager/admin peuvent valider/refuser/annuler
+         $this->requireManagerOrAdmin();
+ 
+         $allowed = ['validee', 'refusee', 'annulee'];
+         if (empty($payload['status']) || !in_array($payload['status'], $allowed)) {
+             respondJson(['error' => 'statut invalide'], 400);
+         }
+         $status = $payload['status'];
+-        $handled_by = getCurrentUserId();
++        $handled_by = getCurrentUserId();
++        if (!$handled_by) {
++            respondJson(['error' => 'Authentification requise'], 401);
++        }
+         $comment = $payload['handle_comment'] ?? null;
+ 
+         try {
+             $this->pdo->beginTransaction();
+*** End Patch
+*** Begin Patch
+*** Update File: frontend/src/App.jsx
+@@
+   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || null);
+-  const [userId, setUserId] = useState(parseInt(localStorage.getItem('userId')) || 1);
++  const [userId, setUserId] = useState(localStorage.getItem('userId') ? parseInt(localStorage.getItem('userId')) : null);
+   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+ 
+   const handleLogin = (email, id, role) => {
+     setUserEmail(email);
+     setUserId(id);
+     setUserRole(role || null);
+     localStorage.setItem('userEmail', email);
+     localStorage.setItem('userId', id);
+     if (role) localStorage.setItem('userRole', role);
+   };
+ 
+   const handleLogout = () => {
+     setUserEmail(null);
+-    setUserId(1);
++    setUserId(null);
+     setUserRole(null);
+     localStorage.removeItem('userEmail');
+     localStorage.removeItem('userId');
+     localStorage.removeItem('userRole');
+   };
+@@
+         <Route
+           path="/nouvelle-demande"
+           element={
+             userEmail ? (
+-              <NouvelleDemande userEmail={userEmail} userRole={userRole} />
++              <NouvelleDemande userEmail={userEmail} userRole={userRole} userId={userId} />
+             ) : (
+               <Navigate to="/login" replace />
+             )
+           }
+         />
+*** End Patch
+*** Begin Patch
+*** Update File: frontend/src/pages/MesDemandes.jsx
+@@
+-function MesDemandes({ userEmail, userRole, userId = 1 }) {
++function MesDemandes({ userEmail, userRole, userId }) {
+   const [demandes, setDemandes] = useState([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState('');
+ 
+   useEffect(() => {
+-    setLoading(true);
+-    fetch('http://localhost:8000/api/requests')
+-      .then((res) => res.json())
+-      .then((data) => {
+-        setDemandes(Array.isArray(data) ? data.filter(d => String(d.utilisateur_id) === String(userId)) : []);
+-        setLoading(false);
+-      })
+-      .catch(() => {
+-        setError('Erreur lors du chargement des demandes');
+-        setLoading(false);
+-      });
++    setLoading(true);
++    if (!userId) {
++      setError('Utilisateur non authentifié');
++      setLoading(false);
++      return;
++    }
++
++    fetch('http://localhost:8000/api/requests', {
++      headers: {
++        'X-User-Id': userId
++      }
++    })
++      .then((res) => res.json())
++      .then((data) => {
++        setDemandes(Array.isArray(data) ? data.filter(d => String(d.utilisateur_id) === String(userId)) : []);
++        setLoading(false);
++      })
++      .catch(() => {
++        setError('Erreur lors du chargement des demandes');
++        setLoading(false);
++      });
+   }, [userId]);
+*** End Patch
+*** Begin Patch
+*** Update File: frontend/src/pages/NouvelleDemande.jsx
+@@
+-function NouvelleDemande({ userEmail, userRole, onLogout }) {
++function NouvelleDemande({ userEmail, userRole, onLogout, userId }) {
+@@
+   const handleSubmit = async (e) => {
+     e.preventDefault();
+     if (!dateDebut || !dateFin || !typeConge) {
+@@
+-    try {
+-      setIsLoading(true);
+-      const res = await fetch('http://localhost:8000/api/requests', {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({
+-          utilisateur_id: userId,
+-          type_id: typeConge,
+-          date_debut: dateDebut,
+-          date_fin: dateFin,
+-          motif
+-        })
+-      });
+-      const json = await res.json();
+-      if (!res.ok) throw new Error(json.error || 'Erreur');
+-      setSuccess(true);
+-      setTimeout(() => navigate('/mes-demandes'), 800);
+-    } catch (err) {
+-      setError(err.message || 'Erreur lors de la création');
+-    } finally {
+-      setIsLoading(false);
+-    }
++    try {
++      setIsLoading(true);
++      if (!userId) {
++        setError('Utilisateur non authentifié');
++        setIsLoading(false);
++        return;
++      }
++      const res = await fetch('http://localhost:8000/api/requests', {
++        method: 'POST',
++        headers: { 
++          'Content-Type': 'application/json',
++          'X-User-Id': String(userId)
++        },
++        body: JSON.stringify({
++          type_id: typeConge,
++          date_debut: dateDebut,
++          date_fin: dateFin,
++          motif
++        })
++      });
++      const json = await res.json();
++      if (!res.ok) throw new Error(json.error || 'Erreur');
++      setSuccess(true);
++      setTimeout(() => navigate('/mes-demandes'), 800);
++    } catch (err) {
++      setError(err.message || 'Erreur lors de la création');
++    } finally {
++      setIsLoading(false);
++    }
+   };
+*** End Patch
+*** End Patch

@@ -10,7 +10,7 @@ import Calendrier from './pages/Calendrier';
 
 function App() {
   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || null);
-  const [userId, setUserId] = useState(parseInt(localStorage.getItem('userId')) || 1);
+  const [userId, setUserId] = useState(localStorage.getItem('userId') ? parseInt(localStorage.getItem('userId')) : null);
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
 
   const handleLogin = (email, id, role) => {
@@ -24,7 +24,7 @@ function App() {
 
   const handleLogout = () => {
     setUserEmail(null);
-    setUserId(1);
+    setUserId(null);
     setUserRole(null);
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userId');
@@ -70,7 +70,7 @@ function App() {
           path="/nouvelle-demande"
           element={
             userEmail ? (
-              <NouvelleDemande userEmail={userEmail} userRole={userRole} />
+              <NouvelleDemande userEmail={userEmail} userRole={userRole} userId={userId} />
             ) : (
               <Navigate to="/login" replace />
             )

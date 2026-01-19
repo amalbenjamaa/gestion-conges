@@ -21,9 +21,44 @@ function daysBetweenInclusive($start, $end) {
     return $diff->days + 1;
 }
 
+/**
+ * Retourne l'ID utilisateur courant si présent, sinon null.
+ * Supporte :
+ *  - Header X-User-Id: <id>
+ *  - Authorization: Bearer <id> (simple fallback pour dev)
+ *
+ * Remarque : pour une vraie authentification, remplacez ce mécanisme
+ * par la vérification d'un JWT ou d'une session.
+ */
 function getCurrentUserId() {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
+
+    // Authorization: Bearer <id>
+    if (isset($headers['Authorization'])) {
+        if (preg_match('/Bearer\s+(\d+)/i', $headers['Authorization'], $m)) {
+            return (int)$m[1];
+        }
+    }
+    if (isset($headers['authorization'])) {
+        if (preg_match('/Bearer\s+(\d+)/i', $headers['authorization'], $m)) {
+            return (int)$m[1];
+        }
+    }
+
     if (isset($headers['X-User-Id'])) return (int)$headers['X-User-Id'];
     if (isset($headers['x-user-id'])) return (int)$headers['x-user-id'];
-    return 1; // fallback pour dev
+
+    // Aucun identifiant fourni
+    return null;
+}
+
+/**
+ * Force l'authentification ; renvoie l'ID utilisateur (int) ou répond 401.
+ */
+function requireAuth() {
+    $uid = getCurrentUserId();
+    if (!$uid) {
+        respondJson(['error' => 'Authentification requise'], 401);
+    }
+    return (int)$uid;
 }
