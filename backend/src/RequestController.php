@@ -235,7 +235,7 @@ class RequestController
                     END as statut
                 FROM utilisateurs u
                 JOIN roles r ON r.id = u.role_id
-                WHERE r.nom = 'employe'
+                WHERE r.nom IN ('employe', 'manager')
                 ORDER BY u.nom_complet";
         
         $stmt = $this->pdo->query($sql);
@@ -272,7 +272,7 @@ class RequestController
     // GET /api/stats - Statistiques réelles
     public function getStats(): void
     {
-        $totalEmployes = (int)$this->pdo->query("SELECT COUNT(*) FROM utilisateurs u JOIN roles r ON r.id = u.role_id WHERE r.nom = 'employe'")->fetchColumn();
+        $totalEmployes = (int)$this->pdo->query("SELECT COUNT(*) FROM utilisateurs u JOIN roles r ON r.id = u.role_id WHERE r.nom IN ('employe', 'manager')")->fetchColumn();
 
         $enConge = (int)$this->pdo->query("
             SELECT COUNT(DISTINCT d.utilisateur_id) 
