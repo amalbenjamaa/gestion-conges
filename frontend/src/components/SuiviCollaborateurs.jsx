@@ -1,108 +1,48 @@
-import { useState } from 'react';
-
-// Base de données fictive d'employés
-const employesFictifs = [
-  {
-    id: 1,
-    nom: 'Jean Dupont',
-    role: 'Développeur Senior',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 12,
-    solde: 13
-  },
-  {
-    id: 2,
-    nom: 'Sophie Martin',
-    role: 'Designer UX',
-    statut: 'En congé',
-    quota_annuel: 25,
-    consomme: 20,
-    solde: 5
-  },
-  {
-    id: 3,
-    nom: 'Lucas Bernard',
-    role: 'Chef de Projet',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 5,
-    solde: 20
-  },
-  {
-    id: 4,
-    nom: 'Claire Dubois',
-    role: 'Marketing',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 8,
-    solde: 17
-  },
-  {
-    id: 5,
-    nom: 'Thomas Leroy',
-    role: 'DevOps',
-    statut: 'Maladie',
-    quota_annuel: 25,
-    consomme: 15,
-    solde: 10
-  },
-  {
-    id: 6,
-    nom: 'Émilie Roux',
-    role: 'RH',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 2,
-    solde: 23
-  },
-  {
-    id: 7,
-    nom: 'Marc Lefebvre',
-    role: 'Développeur Full Stack',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 10,
-    solde: 15
-  },
-  {
-    id: 8,
-    nom: 'Julie Moreau',
-    role: 'Product Manager',
-    statut: 'En congé',
-    quota_annuel: 25,
-    consomme: 18,
-    solde: 7
-  },
-  {
-    id: 9,
-    nom: 'Pierre Garnier',
-    role: 'Développeur Frontend',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 6,
-    solde: 19
-  },
-  {
-    id: 10,
-    nom: 'Marie Petit',
-    role: 'Développeur Backend',
-    statut: 'Présent',
-    quota_annuel: 25,
-    consomme: 9,
-    solde: 16
-  }
-];
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function SuiviCollaborateurs() {
-  const [collaborateurs, setCollaborateurs] = useState(employesFictifs);
+  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('Tous');
+  const navigate = useNavigate();
+
+  const loadCollaborateurs = () => {
+    setLoading(true);
+    fetch('http://localhost:8000/api/collaborateurs')
+      .then(res => res.json())
+      .then(data => {
+        setCollaborateurs(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    loadCollaborateurs();
+    
+    // Écouter les mises à jour de demandes
+    const handleUpdate = () => loadCollaborateurs();
+    const handleUserCreated = () => loadCollaborateurs();
+    window.addEventListener('demandeUpdated', handleUpdate);
+    window.addEventListener('userCreated', handleUserCreated);
+    
+    return () => {
+      window.removeEventListener('demandeUpdated', handleUpdate);
+      window.removeEventListener('userCreated', handleUserCreated);
+    };
+  }, []);
 
   // Filtrer les collaborateurs selon la recherche et le statut
   const filteredCollaborateurs = collaborateurs.filter(collab => {
-    const matchesSearch = collab.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         collab.role.toLowerCase().includes(searchTerm.toLowerCase());
+    const roleLabel = (collab.role_nom || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    const matchesSearch =
+      collab.nom.toLowerCase().includes(search) ||
+      roleLabel.includes(search);
     const matchesStatus = filterStatus === 'Tous' || collab.statut === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -148,7 +88,42 @@ function SuiviCollaborateurs() {
             <option value="En congé">En congé</option>
             <option value="Maladie">Maladie</option>
           </select>
-          <button className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              // Export CSV (compatible Excel) des collaborateurs filtrés
+              const headers = ['Nom', 'Email', 'Rôle', 'Statut', 'Quota annuel', 'Consommé', 'Solde'];
+              const rows = filteredCollaborateurs.map((collab) => [
+                collab.nom,
+                collab.email,
+                collab.role_nom || 'Employé',
+                collab.statut,
+                `${collab.quota_annuel} j`,
+                `${collab.consomme} j`,
+                `${collab.solde} j`,
+              ]);
+
+              const allRows = [headers, ...rows];
+              const csv = allRows
+                .map((row) =>
+                  row
+                    .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+                    .join(';')
+                )
+                .join('\n');
+
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'dashboard_collaborateurs.csv';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }}
+            className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -156,7 +131,9 @@ function SuiviCollaborateurs() {
           </button>
         </div>
       </div>
-      {filteredCollaborateurs.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8 text-gray-500">Chargement...</div>
+      ) : filteredCollaborateurs.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <p>Aucun collaborateur trouvé.</p>
         </div>
@@ -183,7 +160,7 @@ function SuiviCollaborateurs() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{collab.nom}</p>
-                        <p className="text-sm text-gray-500">{collab.role}</p>
+                        <p className="text-sm text-gray-500">{collab.position || collab.role_nom || 'Employé'}</p>
                       </div>
                     </div>
                   </td>
@@ -200,10 +177,11 @@ function SuiviCollaborateurs() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                      </svg>
+                    <button
+                      onClick={() => navigate(`/employes/${collab.id}`)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-semibold shadow-sm"
+                    >
+                      Historique
                     </button>
                   </td>
                 </tr>

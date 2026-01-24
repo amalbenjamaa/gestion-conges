@@ -6,18 +6,20 @@ function Dashboard({ userEmail, onNewRequest, refresh }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setLoading(true);
-    fetch('http://localhost:8000/api/requests')
-      .then(res => res.json())
-      .then(data => {
-        setDemandes(data);
-        setLoading(false);
-      })
+  setLoading(true);
+  fetch('http://localhost:8000/api/requests', { credentials: 'include' })
+    .then(res => res.json())
+    .then(data => {
+      setDemandes(data);
+      setLoading(false);
+    })
+    
       .catch(() => {
         setError('Erreur lors du chargement des demandes');
         setLoading(false);
       });
   }, [refresh]);
+  
 
   return (
     <div className="p-6">

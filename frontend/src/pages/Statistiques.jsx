@@ -9,7 +9,8 @@ function Statistiques({ userEmail, userRole, onLogout }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadStats = () => {
+    setLoading(true);
     fetch('http://localhost:8000/api/stats')
       .then(res => res.json())
       .then(data => {
@@ -17,6 +18,18 @@ function Statistiques({ userEmail, userRole, onLogout }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadStats();
+    
+    // Écouter les mises à jour de demandes
+    const handleUpdate = () => loadStats();
+    window.addEventListener('demandeUpdated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('demandeUpdated', handleUpdate);
+    };
   }, []);
 
   if (loading) return <Layout userEmail={userEmail}><div>Chargement...</div></Layout>;
@@ -24,7 +37,8 @@ function Statistiques({ userEmail, userRole, onLogout }) {
   const typeData = {
     labels: stats?.byType?.map(t => t.type) || [],
     datasets: [{
-      data: stats?.byType?.map(t => parseInt(t.cnt)) || [],
+      label: 'Nombre de demandes',
+      data: stats?.byType?.map(t => parseInt(t.count) || 0) || [],
       backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444', '#8b5cf6']
     }]
   };
@@ -33,7 +47,7 @@ function Statistiques({ userEmail, userRole, onLogout }) {
     labels: stats?.perMonth?.map(m => m.month) || [],
     datasets: [{
       label: 'Jours de congés pris',
-      data: stats?.perMonth?.map(m => parseInt(m.cnt)) || [],
+      data: stats?.perMonth?.map(m => parseInt(m.total_jours) || 0) || [],
       backgroundColor: '#3b82f6'
     }]
   };
@@ -42,8 +56,28 @@ function Statistiques({ userEmail, userRole, onLogout }) {
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Statistiques et Graphiques</h1>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Statistiques de la société</h1>
           <p className="text-gray-600 text-sm">Visualisation des données et évolution des congés</p>
+        </div>
+
+        {/* Cartes KPI */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-gray-600 text-sm font-medium mb-1">Total Employés</p>
+            <p className="text-3xl font-bold text-gray-800">{stats?.totalEmployes || 0}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-gray-600 text-sm font-medium mb-1">Présents aujourd'hui</p>
+            <p className="text-3xl font-bold text-gray-800">{stats?.presentAujourdhui || 0}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-gray-600 text-sm font-medium mb-1">En congé</p>
+            <p className="text-3xl font-bold text-gray-800">{stats?.enConge || 0}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-gray-600 text-sm font-medium mb-1">Demandes en attente</p>
+            <p className="text-3xl font-bold text-gray-800">{stats?.demandesEnAttente || 0}</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

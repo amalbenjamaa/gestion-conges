@@ -35,18 +35,11 @@ function NouvelleDemande({ userEmail, userRole, onLogout, userId }) {
         return;
       }
       const res = await fetch('http://localhost:8000/api/requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': String(userId)
-        },
-        body: JSON.stringify({
-          type_id: typeConge,
-          date_debut: dateDebut,
-          date_fin: dateFin,
-          motif
-        })
-      });
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body)
+});
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erreur');
       setSuccess(true);
@@ -95,3 +88,4 @@ function NouvelleDemande({ userEmail, userRole, onLogout, userId }) {
 }
 
 export default NouvelleDemande;
+

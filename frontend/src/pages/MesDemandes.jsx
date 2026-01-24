@@ -9,17 +9,21 @@ function badgeColor(status) {
   return 'bg-gray-200 text-black';
 }
 
-function MesDemandes({ userEmail, userRole, userId = 1 }) {
+function MesDemandes({ userEmail, userRole, userId, onLogout }) {
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    fetch('http://localhost:8000/api/requests')
+    fetch(`http://localhost:8000/api/requests?user_id=${userId}`)
       .then((res) => res.json())
       .then((data) => {
-        setDemandes(Array.isArray(data) ? data.filter(d => String(d.utilisateur_id) === String(userId)) : []);
+        setDemandes(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => {
@@ -29,7 +33,7 @@ function MesDemandes({ userEmail, userRole, userId = 1 }) {
   }, [userId]);
 
   return (
-    <Layout userEmail={userEmail} userRole={userRole}>
+    <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes</h2>
         <p className="text-gray-600 text-sm">Historique de toutes vos demandes de congé</p>

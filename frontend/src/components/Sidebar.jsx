@@ -3,17 +3,27 @@ import { Link, useLocation } from 'react-router-dom';
 function Sidebar({ userRole }) {
   const location = useLocation();
 
-  const menuItems = [
+  // Menus séparés selon le rôle pour que les libellés correspondent bien aux pages
+  let menuItems;
+
+  if (userRole === 'manager') {
+    // Vue manager : pas de bouton \"Nouvelle Demande\"
+    menuItems = [
     { path: '/dashboard', label: 'Tableau de bord', icon: '📊' },
-    { path: '/statistiques', label: 'Statistiques', icon: '📈' },
-    { path: '/nouvelle-demande', label: '+ Nouvelle Demande', icon: '+' },
-    { path: '/mes-demandes', label: 'Mes Demandes', icon: '👤' },
+      { path: '/calendrier', label: 'Calendrier', icon: '📅' },
+      { path: '/statistiques', label: 'Statistiques', icon: '📈' },
+      { path: '/validation', label: 'Validation', icon: '✓' },
+      // Le lien \"Gestion Profils\" (dernier lien) est volontairement retiré de la sidebar
+    ];
+  } else {
+    // Vue employé : le dashboard affiche déjà \"Mes Demandes\"
+    menuItems = [
+      { path: '/dashboard', label: 'Mes Demandes', icon: '👤' },
+      { path: '/nouvelle-demande', label: '+ Nouvelle Demande', icon: '+' },
     { path: '/calendrier', label: 'Calendrier', icon: '📅' },
-    // Visible seulement pour manager/admin
-    ...(userRole === 'manager' || userRole === 'admin'
-      ? [{ path: '/validation', label: 'Validation', icon: '✓' }]
-      : [])
+      { path: '/profil', label: 'Profil & Solde', icon: '🧾' },
   ];
+  }
 
   const isActive = (path) => location.pathname === path;
 

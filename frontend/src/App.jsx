@@ -7,6 +7,10 @@ import NouvelleDemande from './pages/NouvelleDemande';
 import MesDemandes from './pages/MesDemandes';
 import Validation from './pages/Validation';
 import Calendrier from './pages/Calendrier';
+import EmployeDetails from './pages/EmployeDetails';
+import GestionProfils from './pages/GestionProfils';
+import Profil from './pages/Profil';
+import AjouterUtilisateur from './pages/AjouterUtilisateur';
 
 function App() {
   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || null);
@@ -22,16 +26,25 @@ function App() {
     if (role) localStorage.setItem('userRole', role);
   };
 
-  const handleLogout = () => {
+  async function handleLogout() {
+    try {
+      await fetch('http://localhost:8000/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // on ignore les erreurs réseau à la déconnexion
+    } finally {
     setUserEmail(null);
-    setUserId(null);
-    setUserRole(null);
+      setUserId(null);
+      setUserRole(null);
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userId');
-    localStorage.removeItem('userRole');
-  };
+      localStorage.removeItem('userRole');
+    }
+  }
 
-  const canAccessValidation = userRole === 'manager' || userRole === 'admin';
+  const canAccessValidation = userRole === 'manager';
 
   return (
     <Router>
@@ -50,7 +63,22 @@ function App() {
           path="/dashboard"
           element={
             userEmail ? (
-              <Dashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+              userRole === 'manager'
+                ? (
+                  <Dashboard
+                    userEmail={userEmail}
+                    userRole={userRole}
+                    onLogout={handleLogout}
+                  />
+                )
+                : (
+                  <MesDemandes
+                    userEmail={userEmail}
+                    userRole={userRole}
+                    userId={userId}
+                    onLogout={handleLogout}
+                  />
+                )
             ) : (
               <Navigate to="/login" replace />
             )
@@ -67,10 +95,25 @@ function App() {
           }
         />
         <Route
+          path="/employes/:id"
+          element={
+            userEmail && userRole === 'manager' ? (
+              <EmployeDetails userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
           path="/nouvelle-demande"
           element={
             userEmail ? (
-              <NouvelleDemande userEmail={userEmail} userRole={userRole} userId={userId} />
+              <NouvelleDemande
+                userEmail={userEmail}
+                userRole={userRole}
+                userId={userId}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -80,7 +123,22 @@ function App() {
           path="/mes-demandes"
           element={
             userEmail ? (
-              <MesDemandes userEmail={userEmail} userRole={userRole} userId={userId} />
+              <MesDemandes
+                userEmail={userEmail}
+                userRole={userRole}
+                userId={userId}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/profil"
+          element={
+            userEmail ? (
+              <Profil userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -91,7 +149,11 @@ function App() {
           element={
             userEmail ? (
               canAccessValidation ? (
-                <Validation userEmail={userEmail} userRole={userRole} />
+                <Validation
+                  userEmail={userEmail}
+                  userRole={userRole}
+                  onLogout={handleLogout}
+                />
               ) : (
                 <Navigate to="/dashboard" replace />
               )
@@ -104,7 +166,39 @@ function App() {
           path="/calendrier"
           element={
             userEmail ? (
-              <Calendrier userEmail={userEmail} userRole={userRole} />
+              <Calendrier
+                userEmail={userEmail}
+                userRole={userRole}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/gestion-profils"
+          element={
+            userEmail && userRole === 'manager' ? (
+              <GestionProfils
+                userEmail={userEmail}
+                userRole={userRole}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/ajouter-utilisateur"
+          element={
+            userEmail && userRole === 'manager' ? (
+              <AjouterUtilisateur
+                userEmail={userEmail}
+                userRole={userRole}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )

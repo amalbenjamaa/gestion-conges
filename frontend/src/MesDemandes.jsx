@@ -14,14 +14,13 @@ function MesDemandes({ userId }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setLoading(true);
-    fetch('http://localhost:8000/api/requests')
-      .then((res) => res.json())
-      .then((data) => {
-        // Filtrer les demandes pour l'utilisateur courant (TEMP : userId=1)
-        setDemandes(Array.isArray(data) ? data.filter(d => String(d.utilisateur_id) === String(userId || 1)) : []);
-        setLoading(false);
-      })
+  setLoading(true);
+  fetch('http://localhost:8000/api/requests', { credentials: 'include' })
+    .then((res) => res.json())
+    .then((data) => {
+      setDemandes(Array.isArray(data) ? data.filter(d => String(d.utilisateur_id) === String(userId || null)) : []);
+      setLoading(false);
+    })
       .catch(() => {
         setError('Erreur lors du chargement des demandes');
         setLoading(false);

@@ -119,3 +119,5 @@ npm run dev
 
 L'application a maintenant un design professionnel et moderne, cohérent avec les maquettes fournies. Tous les composants sont stylisés avec Tailwind CSS et offrent une excellente expérience utilisateur.
 
+
+

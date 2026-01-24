@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 
-function Validation({ userEmail, userRole }) {
+function Validation({ userEmail, userRole, onLogout }) {
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
@@ -23,23 +23,39 @@ function Validation({ userEmail, userRole }) {
       const res = await fetch(`http://localhost:8000/api/requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // important pour envoyer le cookie de session
         body: JSON.stringify({
           status: status,
           handle_comment: commentaire || null
         })
       });
-      if (!res.ok) throw new Error('Erreur');
+      if (!res.ok) {
+        let apiErr = 'Erreur';
+        try {
+          const data = await res.json();
+          if (data?.error) apiErr = data.error;
+        } catch {
+          // on garde le message générique
+        }
+        throw new Error(apiErr);
+      }
+      
+      // Retirer la demande de la liste
       setDemandes(demandes.filter(d => d.id !== id));
       setSelectedId(null);
       setCommentaire('');
-      alert(status === 'validee' ? 'Demande validée !' : 'Demande refusée.');
+      
+      // Notifier les autres composants via un événement personnalisé
+      window.dispatchEvent(new CustomEvent('demandeUpdated', { detail: { id, status } }));
+      
+      alert(status === 'validee' ? 'Demande validée ! Elle apparaîtra dans le calendrier.' : 'Demande refusée.');
     } catch (error) {
-      alert('Erreur lors du traitement');
+      alert('Erreur lors du traitement: ' + (error?.message || 'Failed to fetch'));
     }
   };
 
   return (
-    <Layout userEmail={userEmail} userRole={userRole}>
+    <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
         <p className="text-gray-600 text-sm">Traitez les demandes de congé en attente de validation</p>
