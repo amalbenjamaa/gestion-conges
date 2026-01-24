@@ -15,7 +15,16 @@ function SuiviCollaborateurs() {
     fetch('http://localhost:8000/api/collaborateurs')
       .then(res => {
         if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
+          // Provide user-friendly French error messages based on status
+          if (res.status === 404) {
+            throw new Error('Service non disponible');
+          } else if (res.status === 500) {
+            throw new Error('Erreur serveur - veuillez réessayer plus tard');
+          } else if (res.status === 403) {
+            throw new Error('Accès refusé');
+          } else {
+            throw new Error('Erreur de connexion au serveur');
+          }
         }
         return res.json();
       })
@@ -25,7 +34,7 @@ function SuiviCollaborateurs() {
       })
       .catch((err) => {
         console.error('Failed to fetch collaborateurs:', err);
-        setError(err.message || 'Failed to fetch');
+        setError(err.message || 'Erreur de chargement des données');
         setLoading(false);
       });
   };
