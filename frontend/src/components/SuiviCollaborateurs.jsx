@@ -4,19 +4,28 @@ import { useNavigate } from 'react-router-dom';
 function SuiviCollaborateurs() {
   const [collaborateurs, setCollaborateurs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('Tous');
   const navigate = useNavigate();
 
   const loadCollaborateurs = () => {
     setLoading(true);
+    setError(null);
     fetch('http://localhost:8000/api/collaborateurs')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         setCollaborateurs(Array.isArray(data) ? data : []);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Failed to fetch collaborateurs:', err);
+        setError(err.message || 'Failed to fetch');
         setLoading(false);
       });
   };
@@ -131,7 +140,20 @@ function SuiviCollaborateurs() {
           </button>
         </div>
       </div>
-      {loading ? (
+      {error ? (
+        <div className="text-center py-8">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg inline-block">
+            <p className="font-semibold">⚠️ Erreur de chargement</p>
+            <p className="text-sm mt-1">{error}</p>
+            <button 
+              onClick={loadCollaborateurs}
+              className="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
+            >
+              Réessayer
+            </button>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="text-center py-8 text-gray-500">Chargement...</div>
       ) : filteredCollaborateurs.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
