@@ -42,4 +42,8 @@ body {
   .glass-panel {
     background: rgba(255, 255, 255, 0.96);
   }
+
+  .glass-panel-dark {
+    background: rgba(15, 23, 42, 0.92);
+  }
 }
