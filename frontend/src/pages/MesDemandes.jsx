@@ -38,7 +38,7 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes</h2>
         <p className="text-gray-600 text-sm">Historique de toutes vos demandes de congé</p>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="glass-panel p-6 rounded-lg shadow-md">
         {loading && (
           <div className="text-center py-8 text-gray-500">Chargement…</div>
         )}
@@ -57,8 +57,8 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
         )}
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200/70">
+              <thead className="bg-white/60">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
@@ -68,9 +68,9 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white/70 divide-y divide-gray-200/70">
                 {demandes.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={d.id} className="hover:bg-white/80 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
@@ -93,5 +93,4 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
 }
 
 export default MesDemandes;
-
 

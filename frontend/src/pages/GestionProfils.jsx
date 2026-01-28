@@ -100,7 +100,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Liste des employés */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Liste des employés</h2>
             {loading ? (
               <div className="text-center py-8 text-gray-500">Chargement...</div>
@@ -113,9 +113,9 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
                     key={emp.id}
                     onClick={() => handleSelectEmploye(emp)}
                     className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                      selectedEmploye?.id === emp.id
-                        ? 'bg-blue-50 border-2 border-blue-500'
-                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                        selectedEmploye?.id === emp.id
+                        ? 'bg-blue-50/80 border-2 border-blue-500/70'
+                        : 'bg-white/60 hover:bg-white/80 border-2 border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -140,7 +140,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
           </div>
 
           {/* Formulaire de modification */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <h2 className="text-lg font-bold text-gray-800 mb-4">
               {selectedEmploye ? `Modifier: ${selectedEmploye.nom}` : 'Sélectionnez un employé'}
             </h2>
@@ -227,7 +227,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="bg-blue-50/80 border border-blue-200/70 rounded-lg p-3">
                   <p className="text-sm text-blue-800">
                     <strong>Solde restant:</strong> {formData.solde_total - formData.solde_consomme} jours
                   </p>
@@ -282,4 +282,3 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
 }
 
 export default GestionProfils;
-

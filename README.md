@@ -62,6 +62,8 @@ gestion-conges/
 - Node.js >= 18.0
 - npm ou yarn
 
+Suivez les étapes 1 à 5 ci-dessous pour lancer l'application en local (backend + frontend).
+
 ### 1. Cloner le projet
 
 ```bash
@@ -88,10 +90,11 @@ DB_PASS = votre_mot_de_passe
 DB_PORT = 3306
 ```
 
-#### Créer un utilisateur admin
+#### Créer un utilisateur manager
 ```bash
-php backend/scripts/create_admin.php
+php backend/scripts/create_user.php
 ```
+Sélectionner le rôle `2` pour manager (ou `1` pour employé).
 
 ### 3. Configuration Frontend
 

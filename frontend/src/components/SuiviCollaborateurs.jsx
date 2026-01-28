@@ -57,7 +57,7 @@ function SuiviCollaborateurs() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="glass-panel p-6 rounded-lg shadow-md">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800">
           <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,7 +72,7 @@ function SuiviCollaborateurs() {
               placeholder="Rechercher..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64" 
+              className="border border-white/70 bg-white/80 rounded-lg px-4 py-2 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64 shadow-sm" 
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -81,7 +81,7 @@ function SuiviCollaborateurs() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            className="border border-white/70 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 shadow-sm"
           >
             <option value="Tous">Tous les statuts</option>
             <option value="Présent">Présent</option>
@@ -122,7 +122,7 @@ function SuiviCollaborateurs() {
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
             }}
-            className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+            className="bg-white/70 hover:bg-white/90 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -140,7 +140,7 @@ function SuiviCollaborateurs() {
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-white/60">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">EMPLOYÉ</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">STATUT</th>
@@ -150,9 +150,9 @@ function SuiviCollaborateurs() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white/70 divide-y divide-gray-200/70">
               {filteredCollaborateurs.map(collab => (
-                <tr key={collab.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={collab.id} className="hover:bg-white/80 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-sm">
@@ -195,5 +195,4 @@ function SuiviCollaborateurs() {
 }
 
 export default SuiviCollaborateurs;
-
 

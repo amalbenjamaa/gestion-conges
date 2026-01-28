@@ -11,9 +11,9 @@ function Layout({ children, userEmail, userRole, onLogout }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-transparent">
       <Sidebar userRole={userRole} />
-      <div className="flex-1 ml-64 bg-gray-50">
+      <div className="flex-1 ml-64 bg-transparent">
         <Header userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
         <main className="p-6 min-h-screen">
           {children}

@@ -60,7 +60,7 @@ function Validation({ userEmail, userRole, onLogout }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
         <p className="text-gray-600 text-sm">Traitez les demandes de congé en attente de validation</p>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="glass-panel p-6 rounded-lg shadow-md">
         {loading && (
           <div className="text-center py-8 text-gray-500">Chargement...</div>
         )}
@@ -74,8 +74,8 @@ function Validation({ userEmail, userRole, onLogout }) {
         )}
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200/80">
+              <thead className="bg-white/60">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
@@ -86,9 +86,9 @@ function Validation({ userEmail, userRole, onLogout }) {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white/70 divide-y divide-gray-200/80">
                 {demandes.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={d.id} className="hover:bg-white/80 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -109,7 +109,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                             placeholder="Commentaire (optionnel, recommandé pour un refus)"
                             value={commentaire}
                             onChange={e => setCommentaire(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-white/70 bg-white/80 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
                             rows="2"
                           />
                           <div className="flex gap-2">
@@ -130,7 +130,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                                 setSelectedId(null);
                                 setCommentaire('');
                               }}
-                              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                              className="bg-white/70 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-white/90 transition-colors shadow-sm"
                             >
                               Annuler
                             </button>
@@ -157,5 +157,3 @@ function Validation({ userEmail, userRole, onLogout }) {
 }
 
 export default Validation;
-
-

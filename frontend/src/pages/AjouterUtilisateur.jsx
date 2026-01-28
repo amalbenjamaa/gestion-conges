@@ -78,7 +78,7 @@ function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Ajouter un Utilisateur</h2>
           <p className="text-gray-600 text-sm">Créez un nouvel employé ou manager</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="glass-panel p-6 rounded-lg shadow-md">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -162,13 +162,13 @@ function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50/80 border border-red-200/70 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-green-50/80 border border-green-200/70 text-green-700 px-4 py-3 rounded-lg text-sm">
                 ✓ Utilisateur créé avec succès ! Redirection en cours...
               </div>
             )}
@@ -197,4 +197,3 @@ function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
 }
 
 export default AjouterUtilisateur;
-
