@@ -72,7 +72,7 @@ function Calendrier({ userEmail, userRole, onLogout }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Calendrier d'Équipe</h2>
         <p className="text-gray-600 text-sm">Visualisez les absences et congés de tous les collaborateurs</p>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="glass-panel p-6 rounded-lg shadow-md">
         {loading ? (
           <div className="text-center py-8 text-gray-500">Chargement du calendrier...</div>
         ) : (

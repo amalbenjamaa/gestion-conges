@@ -62,26 +62,26 @@ function Statistiques({ userEmail, userRole, onLogout }) {
 
         {/* Cartes KPI */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <p className="text-gray-600 text-sm font-medium mb-1">Total Employés</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.totalEmployes || 0}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <p className="text-gray-600 text-sm font-medium mb-1">Présents aujourd'hui</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.presentAujourdhui || 0}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <p className="text-gray-600 text-sm font-medium mb-1">En congé</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.enConge || 0}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <p className="text-gray-600 text-sm font-medium mb-1">Demandes en attente</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.demandesEnAttente || 0}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-bold mb-4 text-gray-800">Évolution des demandes</h3>
             <Bar data={monthlyData} options={{ 
               responsive: true, 
@@ -104,7 +104,7 @@ function Statistiques({ userEmail, userRole, onLogout }) {
               }
             }} />
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="glass-panel p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-bold mb-4 text-gray-800">Répartition par type</h3>
             <Doughnut data={typeData} options={{ 
               responsive: true,
@@ -130,4 +130,3 @@ function Statistiques({ userEmail, userRole, onLogout }) {
 }
 
 export default Statistiques;
-

@@ -73,7 +73,7 @@ function NouvelleDemande({ userEmail, userRole, onLogout }) {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Soumettre une demande</h2>
           <p className="text-gray-600 text-sm">Remplissez le formulaire ci-dessous pour créer une nouvelle demande de congé</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="glass-panel p-6 rounded-lg shadow-md">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -154,5 +154,4 @@ function NouvelleDemande({ userEmail, userRole, onLogout }) {
 }
 
 export default NouvelleDemande;
-
 

@@ -41,7 +41,7 @@ function Login({ onLogin }) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div className="glass-panel p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">DYNAMIX SERVICES</h1>
           <h2 className="text-xl font-semibold text-gray-600">Gestion des Congés</h2>

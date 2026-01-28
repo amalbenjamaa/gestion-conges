@@ -31,4 +31,3 @@ function Dashboard({ userEmail, userRole, onLogout }) {
 }
 
 export default Dashboard;
-

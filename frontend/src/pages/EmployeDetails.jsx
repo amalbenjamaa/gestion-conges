@@ -108,7 +108,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
         </div>
 
         {/* Carte info employé */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="glass-panel p-6 rounded-lg shadow-md">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-sm overflow-hidden">
               {employe.avatar_url ? (
@@ -130,7 +130,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
               </div>
             </div>
             <div className="ml-auto">
-              <label className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg cursor-pointer text-sm font-semibold">
+              <label className="inline-flex items-center gap-2 bg-white/70 hover:bg-white/90 px-4 py-2 rounded-lg cursor-pointer text-sm font-semibold shadow-sm">
                 {uploading ? 'Upload…' : 'Changer photo'}
                 <input
                   type="file"
@@ -145,7 +145,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
         </div>
 
         {/* Tableau des demandes */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="glass-panel p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Historique des demandes</h3>
           {demandes.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -153,8 +153,8 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200/70">
+                <thead className="bg-white/60">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
@@ -164,9 +164,9 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white/70 divide-y divide-gray-200/70">
                   {demandes.map((d) => (
-                    <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={d.id} className="hover:bg-white/80 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
@@ -190,4 +190,3 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
 }
 
 export default EmployeDetails;
-
