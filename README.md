@@ -62,6 +62,52 @@ gestion-conges/
 - Node.js >= 18.0
 - npm ou yarn
 
+## ▶️ Étapes pour lancer l'application (local)
+
+1. **Importer la base de données**
+   ```bash
+   mysql -u root -p < backend/db.sql
+   ```
+
+2. **Configurer la connexion MySQL**
+   Créer `backend/config.ini` :
+   ```ini
+   [database]
+   DB_HOST = 127.0.0.1
+   DB_NAME = gestion_conges
+   DB_USER = root
+   DB_PASS = votre_mot_de_passe
+   DB_PORT = 3306
+   ```
+
+3. **Créer un utilisateur manager**
+   ```bash
+   php backend/scripts/create_user.php
+   ```
+   Utiliser le rôle `2` pour manager.
+
+4. **Installer les dépendances frontend**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+5. **Lancer le backend**
+   ```bash
+   cd backend/public
+   php -S localhost:8000
+   ```
+
+6. **Lancer le frontend**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+7. **Ouvrir l'application**
+   - Frontend : http://localhost:5173
+   - API : http://localhost:8000
+
 ### 1. Cloner le projet
 
 ```bash
