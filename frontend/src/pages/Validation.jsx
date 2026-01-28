@@ -74,7 +74,7 @@ function Validation({ userEmail, userRole, onLogout }) {
         )}
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200/70">
+            <table className="min-w-full divide-y divide-gray-200/80">
               <thead className="bg-white/60">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
@@ -86,7 +86,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white/70 divide-y divide-gray-200/70">
+              <tbody className="bg-white/70 divide-y divide-gray-200/80">
                 {demandes.map((d) => (
                 <tr key={d.id} className="hover:bg-white/80 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -157,4 +157,3 @@ function Validation({ userEmail, userRole, onLogout }) {
 }
 
 export default Validation;
-

@@ -39,7 +39,7 @@ function Sidebar({ userRole }) {
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive(item.path)
                   ? 'bg-blue-600/90 text-white font-semibold shadow-md'
-                  : 'text-slate-200/80 hover:bg-white/10 hover:text-white'
+                  : 'text-slate-100 hover:bg-white/10 hover:text-white'
               }`}
             >
               <span className="text-lg">{item.icon}</span>
@@ -53,4 +53,3 @@ function Sidebar({ userRole }) {
 }
 
 export default Sidebar;
-
