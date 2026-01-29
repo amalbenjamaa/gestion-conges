@@ -79,24 +79,33 @@ class RequestController
         }
 
         // Vérifier le solde de congés de l'utilisateur
-        $stmt = $this->pdo->prepare("SELECT solde_total, solde_consomme FROM utilisateurs WHERE id = ?");
+        $stmt = $this->pdo->prepare("
+            SELECT u.solde_total, u.solde_consomme, r.nom as role_nom 
+            FROM utilisateurs u 
+            JOIN roles r ON r.id = u.role_id 
+            WHERE u.id = ?
+        ");
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$user) {
             respondJson(['error' => 'Utilisateur introuvable'], 404);
         }
-        $soldeTotal = (int)$user['solde_total'];
-        $soldeConsomme = (int)$user['solde_consomme'];
-        $soldeRestant = $soldeTotal - $soldeConsomme;
+        
+        // Les managers et admins n'ont pas de limite de quota
+        if ($user['role_nom'] !== 'manager' && $user['role_nom'] !== 'admin') {
+            $soldeTotal = (int)$user['solde_total'];
+            $soldeConsomme = (int)$user['solde_consomme'];
+            $soldeRestant = $soldeTotal - $soldeConsomme;
 
-        if ($soldeRestant < 0) {
-            $soldeRestant = 0;
-        }
+            if ($soldeRestant < 0) {
+                $soldeRestant = 0;
+            }
 
-        if ($days > $soldeRestant) {
-            respondJson([
-                'error' => "Vous n'avez pas assez de jours de congés restants. Solde restant : {$soldeRestant} jours."
-            ], 422);
+            if ($days > $soldeRestant) {
+                respondJson([
+                    'error' => "Vous n'avez pas assez de jours de congés restants. Solde restant : {$soldeRestant} jours."
+                ], 422);
+            }
         }
 
         $stmt = $this->pdo->prepare(
@@ -215,6 +224,8 @@ class RequestController
     // GET /api/collaborateurs - Liste des employés avec leurs soldes
     public function listCollaborateurs(): void
     {
+        $currentUserId = getCurrentUserId();
+        
         $sql = "SELECT 
                     u.id,
                     u.nom_complet as nom,
@@ -235,10 +246,14 @@ class RequestController
                     END as statut
                 FROM utilisateurs u
                 JOIN roles r ON r.id = u.role_id
-                WHERE r.nom = 'employe'
-                ORDER BY u.nom_complet";
+                WHERE r.nom = 'employe'";
+
+        $params = [];
+
+        $sql .= " ORDER BY u.nom_complet";
         
-        $stmt = $this->pdo->query($sql);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         respondJson($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
@@ -272,39 +287,74 @@ class RequestController
     // GET /api/stats - Statistiques réelles
     public function getStats(): void
     {
-        $totalEmployes = (int)$this->pdo->query("SELECT COUNT(*) FROM utilisateurs u JOIN roles r ON r.id = u.role_id WHERE r.nom = 'employe'")->fetchColumn();
+        $currentUserId = getCurrentUserId();
+        
+        // Total employes
+        $sql = "SELECT COUNT(*) FROM utilisateurs u JOIN roles r ON r.id = u.role_id WHERE r.nom = 'employe'";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $totalEmployes = (int)$stmt->fetchColumn();
 
-        $enConge = (int)$this->pdo->query("
+        // En congé
+        $sql = "
             SELECT COUNT(DISTINCT d.utilisateur_id) 
             FROM demandes d 
+            JOIN utilisateurs u ON u.id = d.utilisateur_id
+            JOIN roles r ON r.id = u.role_id
             WHERE d.statut = 'validee' 
-            AND CURDATE() BETWEEN d.date_debut AND d.date_fin
-        ")->fetchColumn();
+            AND r.nom = 'employe'
+            AND CURDATE() BETWEEN d.date_debut AND d.date_fin";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $enConge = (int)$stmt->fetchColumn();
 
         $presentAujourdhui = $totalEmployes - $enConge;
-        $demandesEnAttente = (int)$this->pdo->query("SELECT COUNT(*) FROM demandes WHERE statut = 'en_attente'")->fetchColumn();
+        
+        // Demandes en attente
+        $sql = "
+            SELECT COUNT(*) 
+            FROM demandes d 
+            JOIN utilisateurs u ON u.id = d.utilisateur_id 
+            JOIN roles r ON r.id = u.role_id
+            WHERE d.statut = 'en_attente' 
+            AND r.nom = 'employe'";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $demandesEnAttente = (int)$stmt->fetchColumn();
 
         // Répartition par type
-        $byType = $this->pdo->query("
+        $sql = "
             SELECT t.nom as type, COUNT(*) as count, SUM(d.nb_jours) as total_jours
             FROM demandes d
+            JOIN utilisateurs u ON u.id = d.utilisateur_id
+            JOIN roles r ON r.id = u.role_id
             JOIN types_conges t ON t.id = d.type_id
             WHERE d.statut = 'validee'
+            AND r.nom = 'employe'
             GROUP BY t.nom
-        ")->fetchAll(PDO::FETCH_ASSOC);
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $byType = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Évolution mensuelle
-        $perMonth = $this->pdo->query("
+        $sql = "
             SELECT 
-                DATE_FORMAT(date_demande, '%Y-%m') as month,
+                DATE_FORMAT(d.date_demande, '%Y-%m') as month,
                 COUNT(*) as count,
-                SUM(nb_jours) as total_jours
-            FROM demandes
-            WHERE statut = 'validee'
-            GROUP BY DATE_FORMAT(date_demande, '%Y-%m')
+                SUM(d.nb_jours) as total_jours
+            FROM demandes d
+            JOIN utilisateurs u ON u.id = d.utilisateur_id
+            JOIN roles r ON r.id = u.role_id
+            WHERE d.statut = 'validee'
+            AND r.nom = 'employe'
+            GROUP BY DATE_FORMAT(d.date_demande, '%Y-%m')
             ORDER BY month DESC
             LIMIT 12
-        ")->fetchAll(PDO::FETCH_ASSOC);
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $perMonth = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         respondJson([
             'totalEmployes' => $totalEmployes,

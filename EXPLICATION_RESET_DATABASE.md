@@ -366,3 +366,4 @@ SHOW TABLE STATUS LIKE 'utilisateurs';
 Voilà ! Tu comprends maintenant comment fonctionnent ces opérations. 🎉
 
 
+

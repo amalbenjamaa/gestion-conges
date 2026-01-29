@@ -49,3 +49,4 @@ SELECT '' as '';
 SELECT '=== VÉRIFICATION TERMINÉE ===' as '';
 
 
+

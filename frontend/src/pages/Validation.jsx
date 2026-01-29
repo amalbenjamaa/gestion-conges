@@ -6,10 +6,12 @@ function Validation({ userEmail, userRole, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [commentaire, setCommentaire] = useState('');
-  const [actionType, setActionType] = useState('');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/requests?status=en_attente')
+    fetch('http://localhost:8000/api/requests?status=en_attente', {
+      credentials: 'include'
+    })
       .then(res => res.json())
       .then(data => {
         setDemandes(Array.isArray(data) ? data : []);
@@ -39,28 +41,42 @@ function Validation({ userEmail, userRole, onLogout }) {
         }
         throw new Error(apiErr);
       }
-      
+
       // Retirer la demande de la liste
       setDemandes(demandes.filter(d => d.id !== id));
       setSelectedId(null);
       setCommentaire('');
-      
+
       // Notifier les autres composants via un événement personnalisé
       window.dispatchEvent(new CustomEvent('demandeUpdated', { detail: { id, status } }));
-      
-      alert(status === 'validee' ? 'Demande validée ! Elle apparaîtra dans le calendrier.' : 'Demande refusée.');
+
+      setToast({
+        type: status === 'validee' ? 'success' : 'error',
+        message: status === 'validee' ? 'Demande validée' : 'Demande refusée'
+      });
     } catch (error) {
-      alert('Erreur lors du traitement: ' + (error?.message || 'Failed to fetch'));
+      setToast({
+        type: 'error',
+        message: 'Erreur: ' + (error?.message || 'Failed to fetch')
+      });
     }
   };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
+      {toast && (
+        <div className={`fixed top-20 right-6 z-30 px-4 py-3 rounded-lg shadow ${toast.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{toast.message}</span>
+            <button className="text-xs text-gray-500 ml-2" onClick={() => setToast(null)}>Fermer</button>
+          </div>
+        </div>
+      )}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
         <p className="text-gray-600 text-sm">Traitez les demandes de congé en attente de validation</p>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
         {loading && (
           <div className="text-center py-8 text-gray-500">Chargement...</div>
         )}
@@ -75,7 +91,7 @@ function Validation({ userEmail, userRole, onLogout }) {
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
@@ -86,7 +102,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white/40 divide-y divide-gray-200">
                 {demandes.map((d) => (
                   <tr key={d.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -157,5 +173,3 @@ function Validation({ userEmail, userRole, onLogout }) {
 }
 
 export default Validation;
-
-

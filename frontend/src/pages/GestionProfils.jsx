@@ -18,7 +18,9 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/collaborateurs')
+    fetch('http://localhost:8000/api/collaborateurs', {
+      credentials: 'include'
+    })
       .then(res => res.json())
       .then(data => {
         setEmployes(Array.isArray(data) ? data : []);
@@ -55,6 +57,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
       const res = await fetch(`http://localhost:8000/api/employes/${selectedEmploye.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -67,7 +70,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
       setSuccess('Profil mis à jour avec succès !');
       
       // Recharger la liste des employés
-      const resList = await fetch('http://localhost:8000/api/collaborateurs');
+      const resList = await fetch('http://localhost:8000/api/collaborateurs', { credentials: 'include' });
       const listData = await resList.json();
       setEmployes(Array.isArray(listData) ? listData : []);
       
@@ -100,7 +103,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Liste des employés */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Liste des employés</h2>
             {loading ? (
               <div className="text-center py-8 text-gray-500">Chargement...</div>
@@ -140,7 +143,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
           </div>
 
           {/* Formulaire de modification */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
             <h2 className="text-lg font-bold text-gray-800 mb-4">
               {selectedEmploye ? `Modifier: ${selectedEmploye.nom}` : 'Sélectionnez un employé'}
             </h2>
@@ -282,4 +285,3 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
 }
 
 export default GestionProfils;
-

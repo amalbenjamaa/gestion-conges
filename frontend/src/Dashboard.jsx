@@ -6,23 +6,23 @@ function Dashboard({ userEmail, onNewRequest, refresh }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-  setLoading(true);
-  fetch('http://localhost:8000/api/requests', { credentials: 'include' })
-    .then(res => res.json())
-    .then(data => {
-      setDemandes(data);
-      setLoading(false);
-    })
-    
+    setTimeout(() => setLoading(true), 0);
+    fetch('http://localhost:8000/api/requests', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        setDemandes(data);
+        setTimeout(() => setLoading(false), 0);
+      })
+
       .catch(() => {
         setError('Erreur lors du chargement des demandes');
-        setLoading(false);
+        setTimeout(() => setLoading(false), 0);
       });
   }, [refresh]);
-  
+
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-white/70 backdrop-blur-md rounded-lg shadow-sm border border-white/20">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Tableau de bord</h2>
         <button onClick={onNewRequest} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Nouvelle Demande</button>

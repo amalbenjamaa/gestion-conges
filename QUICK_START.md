@@ -180,3 +180,4 @@ JOIN roles r ON r.id = u.role_id;
 Pour plus de détails, voir `GUIDE_INTEGRATION_BASE_DONNEES.md`
 
 
+

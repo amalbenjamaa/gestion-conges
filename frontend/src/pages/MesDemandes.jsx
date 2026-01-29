@@ -16,19 +16,21 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
 
   useEffect(() => {
     if (!userId) {
-      setLoading(false);
+      setTimeout(() => setLoading(false), 0);
       return;
     }
-    setLoading(true);
-    fetch(`http://localhost:8000/api/requests?user_id=${userId}`)
+    setTimeout(() => setLoading(true), 0);
+    fetch(`http://localhost:8000/api/requests?user_id=${userId}`, {
+      credentials: 'include'
+    })
       .then((res) => res.json())
       .then((data) => {
         setDemandes(Array.isArray(data) ? data : []);
-        setLoading(false);
+        setTimeout(() => setLoading(false), 0);
       })
       .catch(() => {
         setError('Erreur lors du chargement des demandes');
-        setLoading(false);
+        setTimeout(() => setLoading(false), 0);
       });
   }, [userId]);
 
@@ -38,7 +40,7 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes</h2>
         <p className="text-gray-600 text-sm">Historique de toutes vos demandes de congé</p>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
         {loading && (
           <div className="text-center py-8 text-gray-500">Chargement…</div>
         )}
@@ -58,7 +60,7 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
@@ -68,7 +70,7 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white/40 divide-y divide-gray-200">
                 {demandes.map((d) => (
                   <tr key={d.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
@@ -93,5 +95,4 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
 }
 
 export default MesDemandes;
-
 

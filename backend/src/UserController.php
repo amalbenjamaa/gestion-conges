@@ -212,9 +212,10 @@ class UserController
             respondJson(['error' => 'Accès refusé. Seuls les managers peuvent créer des utilisateurs.'], 403);
         }
 
-        // Valider les champs requis
-        if (empty($data['nom_complet']) || empty($data['email']) || empty($data['password']) || empty($data['role_id'])) {
-            respondJson(['error' => 'Champs requis manquants: nom_complet, email, password, role_id'], 422);
+        // Valider les champs requis (supporte 'password' ou 'pwd')
+        $rawPassword = $data['password'] ?? ($data['pwd'] ?? null);
+        if (empty($data['nom_complet']) || empty($data['email']) || empty($rawPassword) || empty($data['role_id'])) {
+            respondJson(['error' => 'Champs requis manquants: nom_complet, email, password/pwd, role_id'], 422);
         }
 
         // Vérifier que l'email n'existe pas déjà
@@ -234,29 +235,58 @@ class UserController
         }
 
         // Hash du mot de passe
-        $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
+        $passwordHash = password_hash($rawPassword, PASSWORD_DEFAULT);
 
         // Insérer l'utilisateur
-        $stmt = $this->pdo->prepare("
-            INSERT INTO utilisateurs (nom_complet, email, mot_de_passe, role_id, position, date_naissance, solde_total, solde_consomme)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            trim($data['nom_complet']),
-            trim($data['email']),
-            $passwordHash,
-            $role_id,
-            !empty($data['position']) ? trim($data['position']) : null,
-            !empty($data['date_naissance']) ? $data['date_naissance'] : null,
-            (int)($data['solde_total'] ?? 25),
-            (int)($data['solde_consomme'] ?? 0)
-        ]);
+        try {
+            // Vérifier la présence des colonnes telephone/bureau
+            $hasTelephone = false;
+            $hasBureau = false;
+            try {
+                $q1 = $this->pdo->query("SHOW COLUMNS FROM utilisateurs LIKE 'telephone'");
+                $hasTelephone = (bool)$q1->fetch();
+                $q2 = $this->pdo->query("SHOW COLUMNS FROM utilisateurs LIKE 'bureau'");
+                $hasBureau = (bool)$q2->fetch();
+            } catch (PDOException $e) {
+                // ignore
+            }
 
-        $id = $this->pdo->lastInsertId();
+            $columns = ['nom_complet', 'email', 'mot_de_passe', 'role_id', 'position', 'date_naissance', 'solde_total', 'solde_consomme', 'manager_id'];
+            $values = [
+                trim($data['nom_complet']),
+                trim($data['email']),
+                $passwordHash,
+                $role_id,
+                !empty($data['position']) ? trim($data['position']) : null,
+                !empty($data['date_naissance']) ? $data['date_naissance'] : null,
+                (int)($data['solde_total'] ?? 25),
+                (int)($data['solde_consomme'] ?? 0),
+                $handled_by
+            ];
+
+            if ($hasTelephone) {
+                array_splice($columns, 2, 0, ['telephone']);
+                array_splice($values, 2, 0, [!empty($data['telephone']) ? trim($data['telephone']) : null]);
+            }
+            if ($hasBureau) {
+                $idx = $hasTelephone ? 3 : 2;
+                array_splice($columns, $idx, 0, ['bureau']);
+                array_splice($values, $idx, 0, [!empty($data['bureau']) ? trim($data['bureau']) : null]);
+            }
+
+            $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+            $sql = "INSERT INTO utilisateurs (" . implode(', ', $columns) . ") VALUES ({$placeholders})";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($values);
+
+            $id = $this->pdo->lastInsertId();
+        } catch (PDOException $e) {
+            respondJson(['error' => 'Erreur lors de la création de l\'utilisateur: ' . $e->getMessage()], 500);
+        }
 
         // Retourner l'utilisateur créé
         $stmt = $this->pdo->prepare("
-            SELECT u.id, u.nom_complet, u.email, u.position, u.solde_total, u.solde_consomme,
+            SELECT u.id, u.nom_complet, u.email, u.telephone, u.bureau, u.position, u.solde_total, u.solde_consomme,
                    (u.solde_total - u.solde_consomme) as solde, r.nom as role_nom
             FROM utilisateurs u
             JOIN roles r ON r.id = u.role_id
@@ -268,4 +298,3 @@ class UserController
         respondJson($newUser, 201);
     }
 }
-

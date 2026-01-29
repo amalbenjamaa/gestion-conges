@@ -296,3 +296,4 @@ Une fois ta base intégrée :
 En cas de problème, vérifie les logs du backend et la console du navigateur !
 
 
+

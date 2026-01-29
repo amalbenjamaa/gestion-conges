@@ -10,3 +10,4 @@ ADD COLUMN IF NOT EXISTS date_naissance DATE NULL AFTER position;
 SELECT 'Colonne date_naissance ajoutée avec succès!' as message;
 
 
+

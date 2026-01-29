@@ -28,9 +28,8 @@ function Sidebar({ userRole }) {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="w-64 bg-slate-800 text-white min-h-screen fixed left-0 top-0 z-10 shadow-lg">
+    <div className="w-64 bg-white/70 backdrop-blur-md text-gray-800 min-h-screen fixed left-0 top-0 z-10 shadow-lg border-r border-white/20">
       <div className="p-6">
-        <h1 className="text-xl font-bold mb-8 text-white">DYNAMIX SERVICES</h1>
         <nav className="space-y-1">
           {menuItems.map((item) => (
             <Link
@@ -39,7 +38,7 @@ function Sidebar({ userRole }) {
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive(item.path)
                   ? 'bg-blue-600 text-white font-semibold shadow-md'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               <span className="text-lg">{item.icon}</span>
@@ -53,5 +52,3 @@ function Sidebar({ userRole }) {
 }
 
 export default Sidebar;
-
-

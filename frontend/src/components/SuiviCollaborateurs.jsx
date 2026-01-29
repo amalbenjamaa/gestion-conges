@@ -12,7 +12,9 @@ function SuiviCollaborateurs() {
   const loadCollaborateurs = () => {
     setLoading(true);
     setError(null);
-    fetch('http://localhost:8000/api/collaborateurs')
+    fetch('http://localhost:8000/api/collaborateurs', {
+      credentials: 'include'
+    })
       .then(res => {
         if (!res.ok) {
           // Provide user-friendly French error messages based on status
@@ -40,11 +42,11 @@ function SuiviCollaborateurs() {
   };
 
   useEffect(() => {
-    loadCollaborateurs();
+    setTimeout(() => loadCollaborateurs(), 0);
     
     // Écouter les mises à jour de demandes
-    const handleUpdate = () => loadCollaborateurs();
-    const handleUserCreated = () => loadCollaborateurs();
+    const handleUpdate = () => setTimeout(() => loadCollaborateurs(), 0);
+    const handleUserCreated = () => setTimeout(() => loadCollaborateurs(), 0);
     window.addEventListener('demandeUpdated', handleUpdate);
     window.addEventListener('userCreated', handleUserCreated);
     
@@ -75,7 +77,7 @@ function SuiviCollaborateurs() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800">
           <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,5 +228,4 @@ function SuiviCollaborateurs() {
 }
 
 export default SuiviCollaborateurs;
-
 

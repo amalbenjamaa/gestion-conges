@@ -11,7 +11,9 @@ function Statistiques({ userEmail, userRole, onLogout }) {
 
   const loadStats = () => {
     setLoading(true);
-    fetch('http://localhost:8000/api/stats')
+    fetch('http://localhost:8000/api/stats', {
+      credentials: 'include'
+    })
       .then(res => res.json())
       .then(data => {
         setStats(data);
@@ -21,12 +23,12 @@ function Statistiques({ userEmail, userRole, onLogout }) {
   };
 
   useEffect(() => {
-    loadStats();
-    
+    setTimeout(() => loadStats(), 0);
+
     // Écouter les mises à jour de demandes
-    const handleUpdate = () => loadStats();
+    const handleUpdate = () => setTimeout(() => loadStats(), 0);
     window.addEventListener('demandeUpdated', handleUpdate);
-    
+
     return () => {
       window.removeEventListener('demandeUpdated', handleUpdate);
     };
@@ -39,7 +41,7 @@ function Statistiques({ userEmail, userRole, onLogout }) {
     datasets: [{
       label: 'Nombre de demandes',
       data: stats?.byType?.map(t => parseInt(t.count) || 0) || [],
-      backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444', '#8b5cf6']
+      backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
     }]
   };
 
@@ -48,10 +50,60 @@ function Statistiques({ userEmail, userRole, onLogout }) {
     datasets: [{
       label: 'Jours de congés pris',
       data: stats?.perMonth?.map(m => parseInt(m.total_jours) || 0) || [],
-      backgroundColor: '#3b82f6'
+      backgroundColor: '#2563eb',
+      borderColor: '#1d4ed8',
+      borderWidth: 1,
+      borderRadius: 6,
+      maxBarThickness: 24
     }]
   };
 
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: 0 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+        padding: 10,
+        titleFont: { size: 12, weight: '600' },
+        bodyFont: { size: 11 }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: '#4b5563' }
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: '#e5e7eb' },
+        ticks: { stepSize: 1, font: { size: 11 }, color: '#4b5563' }
+      }
+    }
+  };
+
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '70%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          padding: 12,
+          font: { size: 11 },
+          color: '#374151',
+          usePointStyle: true
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+        padding: 10
+      }
+    }
+  };
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="space-y-6">
@@ -62,66 +114,36 @@ function Statistiques({ userEmail, userRole, onLogout }) {
 
         {/* Cartes KPI */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-sm border border-white/20">
             <p className="text-gray-600 text-sm font-medium mb-1">Total Employés</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.totalEmployes || 0}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-sm border border-white/20">
             <p className="text-gray-600 text-sm font-medium mb-1">Présents aujourd'hui</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.presentAujourdhui || 0}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-sm border border-white/20">
             <p className="text-gray-600 text-sm font-medium mb-1">En congé</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.enConge || 0}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-sm border border-white/20">
             <p className="text-gray-600 text-sm font-medium mb-1">Demandes en attente</p>
             <p className="text-3xl font-bold text-gray-800">{stats?.demandesEnAttente || 0}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Évolution des demandes</h3>
-            <Bar data={monthlyData} options={{ 
-              responsive: true, 
-              plugins: { 
-                legend: { display: false },
-                tooltip: {
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                  padding: 12,
-                  titleFont: { size: 14 },
-                  bodyFont: { size: 12 }
-                }
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: {
-                    stepSize: 1
-                  }
-                }
-              }
-            }} />
+          <div className="bg-white/70 backdrop-blur-md p-4 rounded-lg shadow-sm border border-white/20">
+            <h3 className="text-lg font-bold mb-3 text-gray-800">Évolution des demandes</h3>
+            <div className="h-56">
+              <Bar data={monthlyData} options={barOptions} />
+            </div>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Répartition par type</h3>
-            <Doughnut data={typeData} options={{ 
-              responsive: true,
-              plugins: {
-                legend: {
-                  position: 'bottom',
-                  labels: {
-                    padding: 15,
-                    font: { size: 12 }
-                  }
-                },
-                tooltip: {
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                  padding: 12
-                }
-              }
-            }} />
+          <div className="bg-white/70 backdrop-blur-md p-4 rounded-lg shadow-sm border border-white/20">
+            <h3 className="text-lg font-bold mb-3 text-gray-800">Répartition par type</h3>
+            <div className="h-56">
+              <Doughnut data={typeData} options={doughnutOptions} />
+            </div>
           </div>
         </div>
       </div>
@@ -130,4 +152,3 @@ function Statistiques({ userEmail, userRole, onLogout }) {
 }
 
 export default Statistiques;
-

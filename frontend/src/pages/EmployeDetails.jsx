@@ -18,10 +18,13 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [notif, setNotif] = useState(null);
 
   useEffect(() => {
     // Récupérer les infos de l'employé
-    fetch('http://localhost:8000/api/collaborateurs')
+    fetch('http://localhost:8000/api/collaborateurs', {
+      credentials: 'include'
+    })
       .then(res => res.json())
       .then(data => {
         const found = Array.isArray(data) ? data.find(e => e.id === parseInt(id)) : null;
@@ -38,7 +41,9 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
       });
 
     // Récupérer les demandes de cet employé
-    fetch(`http://localhost:8000/api/requests?user_id=${id}`)
+    fetch(`http://localhost:8000/api/requests?user_id=${id}`, {
+      credentials: 'include'
+    })
       .then(res => res.json())
       .then(data => {
         setDemandes(Array.isArray(data) ? data : []);
@@ -62,9 +67,9 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
       setEmploye((prev) => ({ ...(prev || {}), avatar_url: data.avatar_url }));
       // recharge propre
       setEmploye(data);
-      alert('Photo mise à jour.');
+      setNotif({ type: 'success', message: 'Photo mise à jour' });
     } catch (e) {
-      alert(e.message || 'Erreur upload');
+      setNotif({ type: 'error', message: e.message || 'Erreur upload' });
     } finally {
       setUploading(false);
     }
@@ -90,6 +95,14 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
+      {notif && (
+        <div className={`fixed top-20 right-6 z-30 px-4 py-3 rounded-lg shadow ${notif.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{notif.message}</span>
+            <button className="text-xs text-gray-500 ml-2" onClick={() => setNotif(null)}>Fermer</button>
+          </div>
+        </div>
+      )}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -108,14 +121,12 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
         </div>
 
         {/* Carte info employé */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-sm overflow-hidden">
-              {employe.avatar_url ? (
-                <img src={employe.avatar_url} alt="avatar" className="w-16 h-16 object-cover" />
-              ) : (
-                employe.nom.charAt(0).toUpperCase()
-              )}
+              {typeof employe.avatar_url === 'string' && (employe.avatar_url.startsWith('http') || employe.avatar_url.startsWith('/'))
+                ? <img src={employe.avatar_url} alt="avatar" className="w-16 h-16 object-cover" />
+                : employe.nom.charAt(0).toUpperCase()}
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">{employe.nom}</h2>
@@ -145,7 +156,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
         </div>
 
         {/* Tableau des demandes */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Historique des demandes</h3>
           {demandes.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -190,4 +201,3 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
 }
 
 export default EmployeDetails;
-

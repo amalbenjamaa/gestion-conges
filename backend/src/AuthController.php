@@ -1,104 +1,101 @@
 <?php
-// backend/src/AuthController.php
-require_once __DIR__ . '/Database.php';
-require_once __DIR__ . '/Helpers.php';
-
 class AuthController {
     private $pdo;
 
     public function __construct() {
         $this->pdo = Database::getPdo();
-        if (session_status() !== PHP_SESSION_ACTIVE) {
+        
+        if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
     }
 
-    // POST /api/login
-    // Body JSON: { "email": "...", "password": "..." }
     public function login($data) {
-        $email = trim((string)($data['email'] ?? ''));
-        $password = (string)($data['password'] ?? '');
+        $email = $data['email'] ?? '';
+        $password = $data['password'] ?? '';
 
-        if ($email === '' || $password === '') {
-            respondJson(['error' => 'Email et mot de passe requis'], 400);
+        // Log pour déboguer
+        error_log("Tentative de connexion - Email: $email");
+
+        if (!$email) {
+            respondJson(['error' => 'Email requis'], 400);
+            return;
         }
 
-        $stmt = $this->pdo->prepare("
-            SELECT u.id, u.email, u.mot_de_passe, r.nom AS role
-            FROM utilisateurs u
-            JOIN roles r ON r.id = u.role_id
-            WHERE u.email = ?
-            LIMIT 1
-        ");
+        // Récupérer l'utilisateur
+        $stmt = $this->pdo->prepare("SELECT * FROM utilisateurs WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
-        // Ne jamais leak si l'email existe ou non : réponse identique
-        if (!$user || empty($user['mot_de_passe']) || !password_verify($password, $user['mot_de_passe'])) {
-            respondJson(['error' => 'Identifiants invalides'], 401);
+        if (!$user) {
+            error_log("Utilisateur non trouvé: $email");
+            respondJson(['error' => 'Utilisateur non trouvé'], 404);
+            return;
         }
 
-        // Auth ok -> créer session
-        session_regenerate_id(true);
-        $_SESSION['user_id'] = (int)$user['id'];
+        // Log pour voir si le mot de passe est hashé ou non
+        error_log("Mot de passe en BDD: " . $user['mot_de_passe']);
+        error_log("Mot de passe saisi: $password");
+
+        // VÉRIFICATION DU MOT DE PASSE
+        // Si le mot de passe en BDD est vide ou NULL, accepter directement
+        if (empty($user['mot_de_passe'])) {
+            error_log("Connexion sans mot de passe acceptée pour: $email");
+            // Créer la session
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_email'] = $user['email'];
+            $_SESSION['user_role'] = $user['role_id'];
+
+            respondJson([
+                'ok' => true,
+                'user' => [
+                    'id' => $user['id'],
+                    'email' => $user['email'],
+                    'nom_complet' => $user['nom_complet'],
+                    'role_id' => $user['role_id']
+                ]
+            ]);
+            return;
+        }
+
+        // Si le mot de passe en BDD commence par '$2y$', c'est un hash bcrypt
+        if (strpos($user['mot_de_passe'], '$2y$') === 0) {
+            // Vérifier avec password_verify
+            if (!password_verify($password, $user['mot_de_passe'])) {
+                error_log("Mot de passe hashé incorrect pour: $email");
+                respondJson(['error' => 'Mot de passe incorrect'], 401);
+                return;
+            }
+        } else {
+            // Mot de passe en clair (pour le développement)
+            if ($password !== $user['mot_de_passe']) {
+                error_log("Mot de passe en clair incorrect pour: $email");
+                respondJson(['error' => 'Mot de passe incorrect'], 401);
+                return;
+            }
+        }
+
+        error_log("Connexion réussie pour: $email");
+
+        // Créer la session
+        $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
-        $_SESSION['user_role'] = $user['role'];
+        $_SESSION['user_role'] = $user['role_id'];
 
         respondJson([
-            'id' => (int)$user['id'],
-            'email' => $user['email'],
-            'role' => $user['role'],
+            'ok' => true,
+            'user' => [
+                'id' => $user['id'],
+                'email' => $user['email'],
+                'nom_complet' => $user['nom_complet'],
+                'role_id' => $user['role_id']
+            ]
         ]);
     }
 
-    // POST /api/logout
     public function logout() {
-        // détruire la session
-        $_SESSION = [];
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"],
-                $params["secure"], $params["httponly"]
-            );
-        }
+        session_start();
         session_destroy();
-        respondJson(['ok' => true]);
-    }
-
-    // GET /api/me
-    public function me() {
-        if (empty($_SESSION['user_id'])) {
-            respondJson(['error' => 'Non authentifié'], 401);
-        }
-        $userId = (int)$_SESSION['user_id'];
-        $stmt = $this->pdo->prepare("
-            SELECT u.id, u.nom_complet, u.email, u.position, u.avatar_url, u.solde_total, u.solde_consomme, r.nom AS role
-            FROM utilisateurs u
-            JOIN roles r ON r.id = u.role_id
-            WHERE u.id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$userId]);
-        $u = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$u) {
-            respondJson(['error' => 'Utilisateur introuvable'], 404);
-        }
-        $soldeTotal = (int)$u['solde_total'];
-        $soldeConsomme = (int)$u['solde_consomme'];
-        $soldeRestant = max(0, $soldeTotal - $soldeConsomme);
-
-        respondJson([
-            'id' => (int)$u['id'],
-            'email' => $u['email'],
-            'role' => $u['role'],
-            'nom_complet' => $u['nom_complet'],
-            'position' => $u['position'],
-            'avatar_url' => $u['avatar_url'],
-            'solde_total' => $soldeTotal,
-            'solde_consomme' => $soldeConsomme,
-            'solde_restant' => $soldeRestant,
-        ]);
+        respondJson(['ok' => true, 'message' => 'Déconnexion réussie']);
     }
 }
-?>

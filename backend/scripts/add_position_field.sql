@@ -14,3 +14,4 @@ ADD COLUMN IF NOT EXISTS position VARCHAR(100) NULL AFTER nom_complet;
 SELECT 'Colonne position ajoutée avec succès!' as message;
 
 
+
