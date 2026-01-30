@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 
 function Header({ userEmail, userRole, onLogout }) {
@@ -21,6 +22,7 @@ function Header({ userEmail, userRole, onLogout }) {
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userPosition, setUserPosition] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
@@ -107,12 +109,23 @@ function Header({ userEmail, userRole, onLogout }) {
                   <div className="px-4 py-6 text-center text-gray-500 text-sm">Aucune notification</div>
                 ) : (
                   notifications.slice(0, 10).map((n, idx) => (
-                    <div key={idx} className="px-4 py-3 border-b last:border-b-0 hover:bg-gray-50">
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setNotifOpen(false);
+                        if (n.demande_id) {
+                          navigate(`/validation?demandeId=${n.demande_id}`);
+                        } else {
+                          navigate('/validation');
+                        }
+                      }}
+                      className="w-full text-left px-4 py-3 border-b last:border-b-0 hover:bg-gray-50"
+                    >
                       <p className="text-sm text-gray-800">{n.message}</p>
-                      {n.created_at && (
-                        <p className="text-xs text-gray-400 mt-1">{n.created_at}</p>
+                      {n.cree_le && (
+                        <p className="text-xs text-gray-400 mt-1">{n.cree_le}</p>
                       )}
-                    </div>
+                    </button>
                   ))
                 )}
               </div>

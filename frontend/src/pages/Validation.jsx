@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 
 function Validation({ userEmail, userRole, onLogout }) {
@@ -7,6 +8,7 @@ function Validation({ userEmail, userRole, onLogout }) {
   const [selectedId, setSelectedId] = useState(null);
   const [commentaire, setCommentaire] = useState('');
   const [toast, setToast] = useState(null);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetch('http://localhost:8000/api/requests?status=en_attente', {
@@ -14,11 +16,19 @@ function Validation({ userEmail, userRole, onLogout }) {
     })
       .then(res => res.json())
       .then(data => {
-        setDemandes(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setDemandes(list);
+        const did = searchParams.get('demandeId');
+        if (did) {
+          const num = parseInt(did, 10);
+          if (list.some(d => Number(d.id) === num)) {
+            setSelectedId(num);
+          }
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [searchParams]);
 
   const handleAction = async (id, status) => {
     try {

@@ -100,5 +100,46 @@ class AuthController {
             'solde_restant' => $soldeRestant,
         ]);
     }
+
+    // POST /api/me/avatar (multipart/form-data: avatar=file)
+    public function uploadAvatar(): void {
+        if (empty($_SESSION['user_id'])) {
+            respondJson(['error' => 'Non authentifié'], 401);
+        }
+        $userId = (int)$_SESSION['user_id'];
+
+        if (empty($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+            respondJson(['error' => 'Fichier avatar manquant'], 422);
+        }
+
+        $tmp = $_FILES['avatar']['tmp_name'];
+        $mime = mime_content_type($tmp) ?: '';
+        if (strpos($mime, 'image/') !== 0) {
+            respondJson(['error' => 'Le fichier doit être une image'], 422);
+        }
+
+        $ext = pathinfo($_FILES['avatar']['name'] ?? '', PATHINFO_EXTENSION);
+        $ext = strtolower($ext);
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+            $ext = str_replace('image/', '', $mime);
+            if ($ext === 'jpeg') $ext = 'jpg';
+        }
+
+        $dir = __DIR__ . '/../public/uploads/avatars';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+        $filename = 'avatar_' . $userId . '_' . uniqid() . '.' . $ext;
+        $destPath = $dir . '/' . $filename;
+        if (!move_uploaded_file($tmp, $destPath)) {
+            respondJson(['error' => "Impossible d'enregistrer l'image"], 500);
+        }
+
+        $avatarUrl = "http://localhost:8000/uploads/avatars/" . $filename;
+        $stmt = $this->pdo->prepare("UPDATE utilisateurs SET avatar_url = ? WHERE id = ?");
+        $stmt->execute([$avatarUrl, $userId]);
+
+        respondJson(['ok' => true, 'avatar_url' => $avatarUrl]);
+    }
 }
 ?>

@@ -140,7 +140,7 @@ class RequestController
         $nomEmploye = (string)($stmt->fetchColumn() ?: 'Employé');
 
         foreach ($managers as $mid) {
-            $this->notif->createForUser((int)$mid, "Nouvelle demande de {$nomEmploye} ({$start} → {$end})");
+            $this->notif->createForUser((int)$mid, "Nouvelle demande de {$nomEmploye} ({$start} → {$end})", (int)$id);
         }
 
         respondJson(['ok' => true, 'id' => $id], 201);
@@ -212,10 +212,10 @@ class RequestController
             ->execute([$id, $handled_by, $comment]);
 
         // Notification employé
-            if ($status === 'validee') {
-            $this->notif->createForUser((int)$demande['utilisateur_id'], "Votre demande ({$demande['date_debut']} → {$demande['date_fin']}) a été acceptée.");
+        if ($status === 'validee') {
+            $this->notif->createForUser((int)$demande['utilisateur_id'], "Votre demande ({$demande['date_debut']} → {$demande['date_fin']}) a été acceptée.", (int)$id);
         } elseif ($status === 'refusee') {
-            $this->notif->createForUser((int)$demande['utilisateur_id'], "Votre demande ({$demande['date_debut']} → {$demande['date_fin']}) a été refusée.");
+            $this->notif->createForUser((int)$demande['utilisateur_id'], "Votre demande ({$demande['date_debut']} → {$demande['date_fin']}) a été refusée.", (int)$id);
         }
 
         respondJson(['ok' => true, 'nb_jours' => $nb_jours]);
@@ -230,6 +230,7 @@ class RequestController
                     u.id,
                     u.nom_complet as nom,
                     u.email,
+                    u.avatar_url,
                     u.position,
                     u.solde_total as quota_annuel,
                     u.solde_consomme as consomme,

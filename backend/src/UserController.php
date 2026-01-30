@@ -11,7 +11,7 @@ class UserController {
         $email = $data['email'] ?? '';
         $role_id = $data['role_id'] ?? 1;
         $solde_total = $data['solde_total'] ?? 30;
-        $mot_de_passe = $data['mot_de_passe'] ?? null;
+        $plainPassword = $data['password'] ?? ($data['mot_de_passe'] ?? null);
 
         if (!$nom_complet || !$email) {
             respondJson(['error' => 'Nom et email requis'], 400);
@@ -27,7 +27,7 @@ class UserController {
         }
 
         // Hasher le mot de passe si fourni
-        $hashedPassword = $mot_de_passe ? password_hash($mot_de_passe, PASSWORD_BCRYPT) : null;
+        $hashedPassword = $plainPassword ? password_hash($plainPassword, PASSWORD_DEFAULT) : null;
 
         // Avatar par défaut selon le rôle
         $avatar_url = $role_id == 2 

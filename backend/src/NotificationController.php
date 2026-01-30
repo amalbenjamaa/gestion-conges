@@ -14,7 +14,6 @@ class NotificationController
 
     private function ensureTable(): void
     {
-        // Création lazy pour éviter une migration manuelle obligatoire
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS notifications (
               id INT AUTO_INCREMENT PRIMARY KEY,
@@ -28,6 +27,13 @@ class NotificationController
                 REFERENCES utilisateurs(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
+        try {
+            $cols = $this->pdo->query("SHOW COLUMNS FROM notifications LIKE 'demande_id'")->fetchAll(PDO::FETCH_ASSOC);
+            if (!$cols || count($cols) === 0) {
+                $this->pdo->exec("ALTER TABLE notifications ADD COLUMN demande_id INT NULL");
+                $this->pdo->exec("ALTER TABLE notifications ADD INDEX idx_notif_demande_id (demande_id)");
+            }
+        } catch (Throwable $e) {}
     }
 
     public function listMine(): void
@@ -36,7 +42,7 @@ class NotificationController
         $userId = getCurrentUserId();
 
         $stmt = $this->pdo->prepare("
-            SELECT id, message, est_lu, cree_le
+            SELECT id, message, est_lu, cree_le, demande_id
             FROM notifications
             WHERE utilisateur_id = ?
             ORDER BY id DESC
@@ -66,11 +72,11 @@ class NotificationController
         respondJson(['ok' => true]);
     }
 
-    public function createForUser(int $userId, string $message): void
+    public function createForUser(int $userId, string $message, ?int $demandeId = null): void
     {
         $this->ensureTable();
-        $stmt = $this->pdo->prepare("INSERT INTO notifications (utilisateur_id, message, est_lu) VALUES (?, ?, 0)");
-        $stmt->execute([$userId, $message]);
+        $stmt = $this->pdo->prepare("INSERT INTO notifications (utilisateur_id, message, est_lu, demande_id) VALUES (?, ?, 0, ?)");
+        $stmt->execute([$userId, $message, $demandeId]);
     }
 }
 

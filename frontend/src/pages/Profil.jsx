@@ -5,6 +5,8 @@ function Profil({ userEmail, userRole, onLogout }) {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   useEffect(() => {
     fetch('http://localhost:8000/api/me', { credentials: 'include' })
@@ -18,6 +20,31 @@ function Profil({ userEmail, userRole, onLogout }) {
         setLoading(false);
       });
   }, []);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError('');
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('avatar', file);
+      const res = await fetch('http://localhost:8000/api/me/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        body: form
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Erreur lors du téléchargement');
+      }
+      setMe(prev => ({ ...prev, avatar_url: data.avatar_url }));
+    } catch (err) {
+      setUploadError(err.message || 'Échec du téléchargement');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
@@ -52,6 +79,18 @@ function Profil({ userEmail, userRole, onLogout }) {
                 <div className="text-gray-600">{me?.email}</div>
                 {me?.position && (
                   <div className="text-sm text-gray-500 mt-1">📋 {me.position}</div>
+                )}
+              </div>
+              <div className="ml-auto">
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer hover:bg-gray-50">
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-4.553a2.5 2.5 0 10-3.535-3.535L11.464 6.464M6 18l12-12" />
+                  </svg>
+                  <span>{uploading ? 'Téléversement...' : 'Changer la photo'}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={uploading} />
+                </label>
+                {uploadError && (
+                  <div className="text-xs text-red-600 mt-1">{uploadError}</div>
                 )}
               </div>
           </div>
