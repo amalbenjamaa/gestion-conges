@@ -1,147 +1,187 @@
 import { useState } from 'react';
-import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
+import Layout from '../components/Layout';
 
-function NouvelleDemande({ userEmail, userRole, onLogout }) {
+function NouvelleDemande({ userEmail, userRole }) {
   const navigate = useNavigate();
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [typeConge, setTypeConge] = useState('1');
-  const [motif, setMotif] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    type: 'Congé Payé',
+    date_debut: '',
+    date_fin: '',
+    commentaire: ''
+  });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const typeOptions = [
-    { id: 1, nom: 'Congé Payé' },
-    { id: 2, nom: 'Maladie' },
-    { id: 3, nom: 'Sans Solde' },
-    { id: 4, nom: 'RTT' },
-    { id: 5, nom: 'Événement Familial' }
-  ];
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!dateDebut || !dateFin || !typeConge) {
-      setError('Tous les champs sont obligatoires');
+    setError('');
+    setSuccess('');
+
+    if (!formData.date_debut || !formData.date_fin) {
+      setError('Veuillez remplir les dates de début et fin');
       return;
     }
-    setIsLoading(true);
-    setError('');
+
+    if (new Date(formData.date_debut) > new Date(formData.date_fin)) {
+      setError('La date de début doit être antérieure à la date de fin');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // Le backend calculera automatiquement le nombre de jours
-      const body = {
-        type_id: Number(typeConge),
-        date_debut: dateDebut,
-        date_fin: dateFin,
-        motif: motif
-      };
-      const res = await fetch('http://localhost:8000/api/requests', {
+      const response = await fetch('/api/demandes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // important pour envoyer le cookie de session PHP
-        body: JSON.stringify(body)
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Email': userEmail
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData)
       });
 
-      if (!res.ok) {
-        let apiError = 'Erreur serveur';
-        try {
-          const data = await res.json();
-          if (data?.error) apiError = data.error;
-        } catch {
-          // on garde le message générique si le JSON n'est pas lisible
-        }
-        throw new Error(apiError);
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess('Demande créée avec succès !');
+        setFormData({
+          type: 'Congé Payé',
+          date_debut: '',
+          date_fin: '',
+          commentaire: ''
+        });
+        setTimeout(() => navigate('/mes-demandes'), 2000);
+      } else {
+        setError(data.error || 'Erreur lors de la création de la demande');
       }
-      // Notifier le manager (dans le même navigateur) qu'une nouvelle demande a été créée
-      window.dispatchEvent(new CustomEvent('demandeCreated'));
-      setSuccess(true);
-      setTimeout(() => {
-        navigate('/mes-demandes');
-      }, 1500);
-    } catch (error) {
-      setError(error.message || 'Erreur lors de l\'enregistrement');
+    } catch (err) {
+      console.error('Erreur:', err);
+      setError('Impossible de créer la demande');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-      <div className="max-w-2xl mx-auto">
+    <Layout userEmail={userEmail} userRole={userRole}>
+      <div className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Soumettre une demande</h2>
-          <p className="text-gray-600 text-sm">Remplissez le formulaire ci-dessous pour créer une nouvelle demande de congé</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Nouvelle Demande de Congé</h2>
+          <p className="text-gray-600 text-sm">Remplissez le formulaire pour créer une nouvelle demande</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Date début *</label>
-                <input
-                  type="date"
-                  value={dateDebut}
-                  onChange={e => setDateDebut(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Date fin *</label>
-                <input
-                  type="date"
-                  value={dateFin}
-                  onChange={e => setDateFin(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-            </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {success}
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Type de congé */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Type de congé *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Type de congé <span className="text-red-500">*</span>
+              </label>
               <select
-                value={typeConge}
-                onChange={e => setTypeConge(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
               >
-                {typeOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.nom}</option>
-                ))}
+                <option value="Congé Payé">Congé Payé</option>
+                <option value="RTT">RTT</option>
+                <option value="Congé Sans Solde">Congé Sans Solde</option>
+                <option value="Congé Maladie">Congé Maladie</option>
+                <option value="Congé Maternité">Congé Maternité</option>
+                <option value="Congé Paternité">Congé Paternité</option>
               </select>
             </div>
+
+            {/* Date de début */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Motif / Commentaire</label>
-              <textarea
-                value={motif}
-                onChange={e => setMotif(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                rows="4"
-                placeholder="Décrivez la raison de votre demande de congé..."
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date de début <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="date_debut"
+                value={formData.date_debut}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
               />
             </div>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-                ✓ Demande envoyée avec succès ! Redirection en cours...
-              </div>
-            )}
+
+            {/* Date de fin */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date de fin <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="date_fin"
+                value={formData.date_fin}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+            </div>
+
+            {/* Commentaire */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Commentaire (optionnel)
+              </label>
+              <textarea
+                name="commentaire"
+                value={formData.commentaire}
+                onChange={handleChange}
+                rows="4"
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Ajoutez des détails sur votre demande..."
+              />
+            </div>
+
+            {/* Boutons */}
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                disabled={isLoading}
-                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+                disabled={loading}
+                className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
+                  loading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
-                {isLoading ? 'Envoi en cours...' : 'Envoyer la demande'}
+                {loading ? 'Envoi en cours...' : 'Envoyer la demande'}
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
-                className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+                onClick={() => navigate('/mes-demandes')}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
               >
                 Annuler
               </button>
@@ -154,5 +194,3 @@ function NouvelleDemande({ userEmail, userRole, onLogout }) {
 }
 
 export default NouvelleDemande;
-
-

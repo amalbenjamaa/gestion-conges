@@ -1,235 +1,201 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 
 function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    nom: '',
-    prenom: '',
-    poste: '',
-    date_naissance: '',
+    nom_complet: '',
     email: '',
-    telephone: '',
-    bureau: '',
-    password: '',
-    role_id: '1', // 1 = employe, 2 = manager
+    role_id: 1,
+    solde_total: 30,
+    mot_de_passe: ''
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [credentials, setCredentials] = useState(null);
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.nom || !formData.prenom || !formData.email || !formData.password) {
-      setError('Nom, prénom, email et mot de passe sont obligatoires');
+    setError('');
+    setSuccess('');
+
+    if (!formData.nom_complet || !formData.email) {
+      setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-    setIsLoading(true);
-    setError('');
-    setSuccess(false);
+
+    setLoading(true);
 
     try {
-      const nomComplet = `${formData.prenom} ${formData.nom}`.trim();
-
-      const res = await fetch('http://localhost:8000/api/users', {
+      const response = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          nom_complet: nomComplet,
-          email: formData.email,
-          // support 'pwd' côté backend, mais on envoie 'password'
-          password: formData.password,
-          telephone: formData.telephone || null,
-          bureau: formData.bureau || null,
-          role_id: Number(formData.role_id),
-          position: formData.poste || null,
-          date_naissance: formData.date_naissance || null,
-          solde_total: 25,
-          solde_consomme: 0
-        })
+        body: JSON.stringify(formData)
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Erreur lors de la création');
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess('Utilisateur créé avec succès !');
+        setFormData({
+          nom_complet: '',
+          email: '',
+          role_id: 1,
+          solde_total: 30,
+          mot_de_passe: ''
+        });
+      } else {
+        setError(data.error || 'Erreur lors de la création');
       }
-
-      await res.json();
-      setSuccess(true);
-      
-      setCredentials({
-        email: formData.email,
-        password: formData.password,
-        roleName: formData.role_id === '1' ? 'Employé' : 'Manager'
-      });
-      
-      // Rafraîchir le dashboard en déclenchant un événement
-      window.dispatchEvent(new CustomEvent('userCreated'));
-      
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 500);
     } catch (err) {
-      setError(err.message || 'Erreur lors de la création de l\'utilisateur');
+      console.error('Erreur:', err);
+      setError('Impossible de créer l\'utilisateur');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Ajouter un Utilisateur</h2>
-          <p className="text-gray-600 text-sm">Créez un nouvel employé ou manager</p>
+          <p className="text-gray-600 text-sm">Créer un nouveau compte employé ou manager</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Nom *</label>
-                <input
-                  type="text"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Prénom *</label>
-                <input
-                  type="text"
-                  value={formData.prenom}
-                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Téléphone</label>
-                <input
-                  type="tel"
-                  value={formData.telephone}
-                  onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
-                  placeholder="+213 ..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Bureau</label>
-                <input
-                  type="text"
-                  value={formData.bureau}
-                  onChange={(e) => setFormData({ ...formData, bureau: e.target.value })}
-                  placeholder="Ex: 3ème étage, B-12"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                />
-              </div>
-            </div>
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
+        {success && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {success}
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Nom complet */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Poste</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nom complet <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
-                value={formData.poste}
-                onChange={(e) => setFormData({ ...formData, poste: e.target.value })}
-                placeholder="Ex: Développeur, Manager RH, Chef de Projet..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                name="nom_complet"
+                value={formData.nom_complet}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Jean Dupont"
+                required
               />
             </div>
 
+            {/* Email */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Date de naissance</label>
-              <input
-                type="date"
-                value={formData.date_naissance}
-                onChange={(e) => setFormData({ ...formData, date_naissance: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
               <input
                 type="email"
+                name="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="exemple: jean.dupont@entreprise.com"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="jean.dupont@entreprise.com"
                 required
               />
             </div>
 
+            {/* Rôle */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Mot de passe *</label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Rôle *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Rôle <span className="text-red-500">*</span>
+              </label>
               <select
+                name="role_id"
                 value={formData.role_id}
-                onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                required
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="1">Employé</option>
-                <option value="2">Manager</option>
+                <option value={1}>Employé</option>
+                <option value={2}>Manager</option>
               </select>
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+            {/* Solde total */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Solde total de congés (jours)
+              </label>
+              <input
+                type="number"
+                name="solde_total"
+                value={formData.solde_total}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min="0"
+              />
+            </div>
 
-            {success && (
-              <div className="space-y-3">
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-                  ✓ Utilisateur créé avec succès ! Redirection en cours...
-                </div>
-                {credentials && (
-                  <div className="bg-white border border-gray-200 px-4 py-3 rounded-lg text-sm shadow-sm">
-                    <p className="font-semibold text-gray-800 mb-2">Coordonnées de connexion</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-gray-700">
-                      <div><span className="text-gray-500">Email:</span> {credentials.email}</div>
-                      <div><span className="text-gray-500">Mot de passe:</span> {credentials.password}</div>
-                      <div><span className="text-gray-500">Rôle:</span> {credentials.roleName}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Mot de passe */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mot de passe (optionnel)
+              </label>
+              <input
+                type="password"
+                name="mot_de_passe"
+                value={formData.mot_de_passe}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Laisser vide pour connexion sans mot de passe"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Si laissé vide, l'utilisateur pourra se connecter uniquement avec son email
+              </p>
+            </div>
 
+            {/* Boutons */}
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                disabled={isLoading}
-                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+                disabled={loading}
+                className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
+                  loading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
-                {isLoading ? 'Création en cours...' : 'Créer l\'utilisateur'}
+                {loading ? 'Création...' : 'Créer l\'utilisateur'}
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
-                className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+                onClick={() => setFormData({
+                  nom_complet: '',
+                  email: '',
+                  role_id: 1,
+                  solde_total: 30,
+                  mot_de_passe: ''
+                })}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
               >
-                Annuler
+                Réinitialiser
               </button>
             </div>
           </form>

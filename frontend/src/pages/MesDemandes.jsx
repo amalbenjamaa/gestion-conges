@@ -1,98 +1,126 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 
-function badgeColor(status) {
-  if (status === 'validee') return 'bg-green-600 text-white';
-  if (status === 'refusee') return 'bg-red-600 text-white';
-  if (status === 'en_attente') return 'bg-yellow-400 text-black';
-  if (status === 'annulee') return 'bg-gray-400 text-white';
-  return 'bg-gray-200 text-black';
-}
-
-function MesDemandes({ userEmail, userRole, userId, onLogout }) {
+function MesDemandes({ userEmail, userId, userRole, onLogout }) {
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!userId) {
-      setTimeout(() => setLoading(false), 0);
-      return;
-    }
-    setTimeout(() => setLoading(true), 0);
-    fetch(`http://localhost:8000/api/requests?user_id=${userId}`, {
-      credentials: 'include'
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setDemandes(Array.isArray(data) ? data : []);
-        setTimeout(() => setLoading(false), 0);
+    setLoading(true);
+    fetch(`/api/demandes?userId=${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        setDemandes(data.demandes || []);
+        setLoading(false);
       })
-      .catch(() => {
-        setError('Erreur lors du chargement des demandes');
-        setTimeout(() => setLoading(false), 0);
-      });
+      .catch(() => setLoading(false));
   }, [userId]);
+
+  const getStatusBadge = (statut) => {
+    switch (statut) {
+      case 'en_attente':
+        return 'bg-orange-100 text-orange-800';
+      case 'validee':
+        return 'bg-green-100 text-green-800';
+      case 'refusee':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (statut) => {
+    switch (statut) {
+      case 'en_attente':
+        return 'En attente';
+      case 'validee':
+        return 'Validée';
+      case 'refusee':
+        return 'Refusée';
+      default:
+        return statut;
+    }
+  };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes</h2>
-        <p className="text-gray-600 text-sm">Historique de toutes vos demandes de congé</p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes de Congés</h2>
+        <p className="text-gray-600 text-sm">Consultez l'historique de vos demandes</p>
       </div>
-      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
-        {loading && (
-          <div className="text-center py-8 text-gray-500">Chargement…</div>
-        )}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-            {error}
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Chargement...</div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-800">Historique</h3>
+            <span className="text-sm text-gray-500">{demandes.length} demande(s)</span>
           </div>
-        )}
-        {!loading && demandes.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p>Aucune demande trouvée.</p>
-          </div>
-        )}
-        {!loading && demandes.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/40 divide-y divide-gray-200">
-                {demandes.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeColor(d.statut)}`}>
-                        {d.statut === 'validee' ? 'Validé' : d.statut === 'refusee' ? 'Refusé' : d.statut === 'en_attente' ? 'En attente' : d.statut}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.nb_jours} j</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{d.motif || '-'}</td>
+
+          {demandes.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date début</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date fin</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jours</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commentaire</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {demandes.map((demande) => (
+                    <tr key={demande.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {demande.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {demande.date_debut}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {demande.date_fin}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {demande.nb_jours_ouvrables} jours
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(demande.statut)}`}>
+                          {getStatusLabel(demande.statut)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {demande.commentaire || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <div className="text-gray-400 mb-4">
+                <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-gray-500 text-sm">Vous n'avez aucune demande de congé</p>
+              <button
+                onClick={() => window.location.href = '/nouvelle-demande'}
+                className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Créer une demande
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </Layout>
   );
 }
 
 export default MesDemandes;
-
