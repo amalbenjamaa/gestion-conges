@@ -5,6 +5,15 @@ function Profil({ userEmail, userRole, onLogout }) {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const isValidUrl = (str) => {
+    if (typeof str !== 'string') return false;
+    try {
+      new URL(str);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     fetch('http://localhost:8000/api/me', { credentials: 'include' })
@@ -41,11 +50,9 @@ function Profil({ userEmail, userRole, onLogout }) {
           <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl overflow-hidden">
-                {me?.avatar_url ? (
-                  <img src={me.avatar_url} alt="avatar" className="w-16 h-16 object-cover" />
-                ) : (
-                  (me?.nom_complet || me?.email || 'U').charAt(0).toUpperCase()
-                )}
+                {isValidUrl(me?.avatar_url)
+                  ? <img src={me.avatar_url} alt="avatar" className="w-16 h-16 object-cover" />
+                  : (me?.nom_complet || me?.email || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
                 <div className="text-xl font-bold text-gray-900">{me?.nom_complet || 'Utilisateur'}</div>

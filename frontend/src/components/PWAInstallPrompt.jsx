@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 
 function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showInstallButton, setShowInstallButton] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
@@ -16,7 +15,6 @@ function PWAInstallPrompt() {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowInstallButton(true);
       
       // Afficher la bannière après 3 secondes
       setTimeout(() => {
@@ -28,7 +26,7 @@ function PWAInstallPrompt() {
 
     // Vérifier si l'app est déjà installée
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      setShowInstallButton(false);
+      setShowBanner(false);
     }
 
     return () => {
@@ -52,12 +50,10 @@ function PWAInstallPrompt() {
 
     setDeferredPrompt(null);
     setShowBanner(false);
-    setShowInstallButton(false);
   };
 
   const handleDismiss = () => {
     setShowBanner(false);
-    setShowInstallButton(false);
     localStorage.setItem('pwa-install-dismissed', 'true');
   };
 

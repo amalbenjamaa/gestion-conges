@@ -7,22 +7,22 @@ function Sidebar({ userRole }) {
   let menuItems;
 
   if (userRole === 'manager') {
-    // Vue manager : pas de bouton \"Nouvelle Demande\"
+    // Vue manager : pas de bouton "Nouvelle Demande"
     menuItems = [
-    { path: '/dashboard', label: 'Tableau de bord', icon: '📊' },
-      { path: '/calendrier', label: 'Calendrier', icon: '📅' },
+      { path: '/dashboard', label: 'Tableau de bord', icon: '📊' },
       { path: '/statistiques', label: 'Statistiques', icon: '📈' },
+      { path: '/calendrier', label: 'Calendrier', icon: '📅' },
       { path: '/validation', label: 'Validation', icon: '✓' },
-      // Le lien \"Gestion Profils\" (dernier lien) est volontairement retiré de la sidebar
+      // Le lien "Gestion Profils" (dernier lien) est volontairement retiré de la sidebar
     ];
   } else {
-    // Vue employé : le dashboard affiche déjà \"Mes Demandes\"
+    // Vue employé : le dashboard affiche déjà "Mes Demandes"
     menuItems = [
       { path: '/dashboard', label: 'Mes Demandes', icon: '👤' },
-      { path: '/nouvelle-demande', label: '+ Nouvelle Demande', icon: '+' },
-    { path: '/calendrier', label: 'Calendrier', icon: '📅' },
+      { path: '/nouvelle-demande', label: 'Nouvelle Demande', icon: '📝' },
+      { path: '/calendrier', label: 'Calendrier', icon: '📅' },
       { path: '/profil', label: 'Profil & Solde', icon: '🧾' },
-  ];
+    ];
   }
 
   const isActive = (path) => location.pathname === path;

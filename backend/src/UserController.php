@@ -242,16 +242,19 @@ class UserController
             // Vérifier la présence des colonnes telephone/bureau
             $hasTelephone = false;
             $hasBureau = false;
+            $hasManagerId = false;
             try {
                 $q1 = $this->pdo->query("SHOW COLUMNS FROM utilisateurs LIKE 'telephone'");
                 $hasTelephone = (bool)$q1->fetch();
                 $q2 = $this->pdo->query("SHOW COLUMNS FROM utilisateurs LIKE 'bureau'");
                 $hasBureau = (bool)$q2->fetch();
+                $q3 = $this->pdo->query("SHOW COLUMNS FROM utilisateurs LIKE 'manager_id'");
+                $hasManagerId = (bool)$q3->fetch();
             } catch (PDOException $e) {
                 // ignore
             }
 
-            $columns = ['nom_complet', 'email', 'mot_de_passe', 'role_id', 'position', 'date_naissance', 'solde_total', 'solde_consomme', 'manager_id'];
+            $columns = ['nom_complet', 'email', 'mot_de_passe', 'role_id', 'position', 'date_naissance', 'solde_total', 'solde_consomme'];
             $values = [
                 trim($data['nom_complet']),
                 trim($data['email']),
@@ -260,8 +263,7 @@ class UserController
                 !empty($data['position']) ? trim($data['position']) : null,
                 !empty($data['date_naissance']) ? $data['date_naissance'] : null,
                 (int)($data['solde_total'] ?? 25),
-                (int)($data['solde_consomme'] ?? 0),
-                $handled_by
+                (int)($data['solde_consomme'] ?? 0)
             ];
 
             if ($hasTelephone) {
@@ -272,6 +274,10 @@ class UserController
                 $idx = $hasTelephone ? 3 : 2;
                 array_splice($columns, $idx, 0, ['bureau']);
                 array_splice($values, $idx, 0, [!empty($data['bureau']) ? trim($data['bureau']) : null]);
+            }
+            if ($hasManagerId) {
+                $columns[] = 'manager_id';
+                $values[] = $handled_by;
             }
 
             $placeholders = implode(', ', array_fill(0, count($columns), '?'));
@@ -284,9 +290,9 @@ class UserController
             respondJson(['error' => 'Erreur lors de la création de l\'utilisateur: ' . $e->getMessage()], 500);
         }
 
-        // Retourner l'utilisateur créé
+        // Retourner l'utilisateur créé (sans champs optionnels qui peuvent ne pas exister)
         $stmt = $this->pdo->prepare("
-            SELECT u.id, u.nom_complet, u.email, u.telephone, u.bureau, u.position, u.solde_total, u.solde_consomme,
+            SELECT u.id, u.nom_complet, u.email, u.position, u.solde_total, u.solde_consomme,
                    (u.solde_total - u.solde_consomme) as solde, r.nom as role_nom
             FROM utilisateurs u
             JOIN roles r ON r.id = u.role_id
