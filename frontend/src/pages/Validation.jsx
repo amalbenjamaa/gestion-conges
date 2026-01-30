@@ -4,170 +4,170 @@ import Layout from '../components/Layout';
 function Validation({ userEmail, userRole, onLogout }) {
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('en_attente');
+  const [selectedId, setSelectedId] = useState(null);
+  const [commentaire, setCommentaire] = useState('');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    loadDemandes();
-  }, [filter]);
-
-  const loadDemandes = () => {
-    setLoading(true);
-    fetch(`/api/demandes?statut=${filter}`)
+    fetch('http://localhost:8000/api/requests?status=en_attente', {
+      credentials: 'include'
+    })
       .then(res => res.json())
       .then(data => {
-        setDemandes(data.demandes || []);
+        setDemandes(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  };
+  }, []);
 
-  const handleValidation = async (demandeId, newStatus, commentaire = '') => {
+  const handleAction = async (id, status) => {
     try {
-      const response = await fetch(`/api/demandes/${demandeId}`, {
+      const res = await fetch(`http://localhost:8000/api/requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          statut: newStatus,
-          commentaire_manager: commentaire
+        credentials: 'include', // important pour envoyer le cookie de session
+        body: JSON.stringify({
+          status: status,
+          handle_comment: commentaire || null
         })
       });
-
-      if (response.ok) {
-        loadDemandes();
+      if (!res.ok) {
+        let apiErr = 'Erreur';
+        try {
+          const data = await res.json();
+          if (data?.error) apiErr = data.error;
+        } catch {
+          // on garde le message générique
+        }
+        throw new Error(apiErr);
       }
-    } catch (err) {
-      console.error('Erreur:', err);
+
+      // Retirer la demande de la liste
+      setDemandes(demandes.filter(d => d.id !== id));
+      setSelectedId(null);
+      setCommentaire('');
+
+      // Notifier les autres composants via un événement personnalisé
+      window.dispatchEvent(new CustomEvent('demandeUpdated', { detail: { id, status } }));
+
+      setToast({
+        type: status === 'validee' ? 'success' : 'error',
+        message: status === 'validee' ? 'Demande validée' : 'Demande refusée'
+      });
+    } catch (error) {
+      setToast({
+        type: 'error',
+        message: 'Erreur: ' + (error?.message || 'Failed to fetch')
+      });
     }
   };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
-        <p className="text-gray-600 text-sm">Approuvez ou refusez les demandes de congés</p>
-      </div>
-
-      {/* Filtres */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter('en_attente')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filter === 'en_attente'
-                ? 'bg-orange-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            En attente
-          </button>
-          <button
-            onClick={() => setFilter('validee')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filter === 'validee'
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Validées
-          </button>
-          <button
-            onClick={() => setFilter('refusee')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filter === 'refusee'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Refusées
-          </button>
-          <button
-            onClick={() => setFilter('')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filter === ''
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Toutes
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Chargement...</div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md">
-          {demandes.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employé</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jours</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {demandes.map((demande) => (
-                    <tr key={demande.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {demande.nom_complet}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {demande.type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {demande.date_debut} → {demande.date_fin}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {demande.nb_jours_ouvrables} jours
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          demande.statut === 'en_attente' ? 'bg-orange-100 text-orange-800' :
-                          demande.statut === 'validee' ? 'bg-green-100 text-green-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {demande.statut === 'en_attente' ? 'En attente' :
-                           demande.statut === 'validee' ? 'Validée' : 'Refusée'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {demande.statut === 'en_attente' && (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleValidation(demande.id, 'validee')}
-                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs font-medium"
-                            >
-                              Valider
-                            </button>
-                            <button
-                              onClick={() => handleValidation(demande.id, 'refusee')}
-                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium"
-                            >
-                              Refuser
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-gray-500">
-              Aucune demande {filter && `(${filter})`}
-            </div>
-          )}
+      {toast && (
+        <div className={`fixed top-20 right-6 z-30 px-4 py-3 rounded-lg shadow ${toast.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{toast.message}</span>
+            <button className="text-xs text-gray-500 ml-2" onClick={() => setToast(null)}>Fermer</button>
+          </div>
         </div>
       )}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
+        <p className="text-gray-600 text-sm">Traitez les demandes de congé en attente de validation</p>
+      </div>
+      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
+        {loading && (
+          <div className="text-center py-8 text-gray-500">Chargement...</div>
+        )}
+        {!loading && demandes.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p>Aucune demande en attente.</p>
+          </div>
+        )}
+        {!loading && demandes.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white/40 divide-y divide-gray-200">
+                {demandes.map((d) => (
+                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          {(d.requester_name || `User ${d.utilisateur_id}`).charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{d.requester_name || `User ${d.utilisateur_id}`}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold">{d.nb_jours} j</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{d.motif || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {selectedId === d.id ? (
+                        <div className="space-y-2 min-w-[300px]">
+                          <textarea
+                            placeholder="Commentaire (optionnel, recommandé pour un refus)"
+                            value={commentaire}
+                            onChange={e => setCommentaire(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            rows="2"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAction(d.id, 'validee')}
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors font-semibold shadow-sm"
+                            >
+                              ✓ Valider
+                            </button>
+                            <button
+                              onClick={() => handleAction(d.id, 'refusee')}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors font-semibold shadow-sm"
+                            >
+                              ✗ Refuser
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedId(null);
+                                setCommentaire('');
+                              }}
+                              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setSelectedId(d.id)}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-semibold shadow-sm"
+                        >
+                          Traiter
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </Layout>
   );
 }

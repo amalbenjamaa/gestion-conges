@@ -7,34 +7,42 @@ import NouvelleDemande from './pages/NouvelleDemande';
 import MesDemandes from './pages/MesDemandes';
 import Validation from './pages/Validation';
 import Calendrier from './pages/Calendrier';
+import EmployeDetails from './pages/EmployeDetails';
+import GestionProfils from './pages/GestionProfils';
 import Profil from './pages/Profil';
-import Solde from './pages/Solde';
 import AjouterUtilisateur from './pages/AjouterUtilisateur';
 
 function App() {
   const [userEmail, setUserEmail] = useState(sessionStorage.getItem('userEmail') || null);
-  const [userId, setUserId] = useState(parseInt(sessionStorage.getItem('userId')) || 1);
-  const [userRole, setUserRole] = useState(parseInt(sessionStorage.getItem('userRole')) || 1);
+  const [userId, setUserId] = useState(sessionStorage.getItem('userId') ? parseInt(sessionStorage.getItem('userId')) : null);
+  const [userRole, setUserRole] = useState(sessionStorage.getItem('userRole') || null);
 
   const handleLogin = (email, id, role) => {
     setUserEmail(email);
     setUserId(id);
-    setUserRole(role);
+    setUserRole(role || null);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userId', id);
-    sessionStorage.setItem('userRole', role);
+    if (role) sessionStorage.setItem('userRole', role);
   };
 
-  const handleLogout = () => {
-    setUserEmail(null);
-    setUserId(1);
-    setUserRole(1);
-    sessionStorage.removeItem('userEmail');
-    sessionStorage.removeItem('userId');
-    sessionStorage.removeItem('userRole');
-  };
+  async function handleLogout() {
+    try {
+      await fetch('http://localhost:8000/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // on ignore les erreurs réseau à la déconnexion
+    } finally {
+      setUserEmail(null);
+      setUserId(null);
+      setUserRole(null);
+      sessionStorage.clear();
+    }
+  }
 
-  const isManager = userRole === 2;
+  const canAccessValidation = userRole === 'manager';
 
   return (
     <Router>
@@ -43,41 +51,82 @@ function App() {
           path="/login"
           element={
             userEmail ? (
-              <Navigate to={isManager ? "/dashboard" : "/mes-demandes"} replace />
+              <Navigate to="/dashboard" replace />
             ) : (
               <Login onLogin={handleLogin} />
             )
           }
         />
-        
-        {/* Routes MANAGER uniquement */}
-        {isManager && (
-          <>
-            <Route
-              path="/dashboard"
-              element={<Dashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
-            />
-            <Route
-              path="/statistiques"
-              element={<Statistiques userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
-            />
-            <Route
-              path="/validation"
-              element={<Validation userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
-            />
-            <Route
-              path="/ajouter-utilisateur"
-              element={<AjouterUtilisateur userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
-            />
-          </>
-        )}
-        
-        {/* Routes COMMUNES */}
         <Route
-          path="/calendrier"
+          path="/dashboard"
           element={
             userEmail ? (
-              <Calendrier userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+              userRole === 'manager'
+                ? (
+                  <Dashboard
+                    userEmail={userEmail}
+                    userRole={userRole}
+                    onLogout={handleLogout}
+                  />
+                )
+                : (
+                  <MesDemandes
+                    userEmail={userEmail}
+                    userRole={userRole}
+                    userId={userId}
+                    onLogout={handleLogout}
+                  />
+                )
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/statistiques"
+          element={
+            userEmail ? (
+              <Statistiques userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/employes/:id"
+          element={
+            userEmail && userRole === 'manager' ? (
+              <EmployeDetails userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/nouvelle-demande"
+          element={
+            userEmail ? (
+              <NouvelleDemande
+                userEmail={userEmail}
+                userRole={userRole}
+                userId={userId}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/mes-demandes"
+          element={
+            userEmail ? (
+              <MesDemandes
+                userEmail={userEmail}
+                userRole={userRole}
+                userId={userId}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -93,50 +142,67 @@ function App() {
             )
           }
         />
-        
-        {/* Routes EMPLOYÉ uniquement */}
         <Route
-          path="/mes-demandes"
+          path="/validation"
           element={
             userEmail ? (
-              <MesDemandes userEmail={userEmail} userId={userId} userRole={userRole} onLogout={handleLogout} />
+              canAccessValidation ? (
+                <Validation
+                  userEmail={userEmail}
+                  userRole={userRole}
+                  onLogout={handleLogout}
+                />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
             ) : (
               <Navigate to="/login" replace />
             )
           }
         />
         <Route
-          path="/nouvelle-demande"
+          path="/calendrier"
           element={
             userEmail ? (
-              <NouvelleDemande userEmail={userEmail} userRole={userRole} />
+              <Calendrier
+                userEmail={userEmail}
+                userRole={userRole}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
           }
         />
         <Route
-          path="/solde"
+          path="/gestion-profils"
           element={
-            userEmail ? (
-              <Solde userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+            userEmail && userRole === 'manager' ? (
+              <GestionProfils
+                userEmail={userEmail}
+                userRole={userRole}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
           }
         />
-        
-        {/* Redirection par défaut */}
-        <Route 
-          path="/" 
+        <Route
+          path="/ajouter-utilisateur"
           element={
-            userEmail ? (
-              <Navigate to={isManager ? "/dashboard" : "/mes-demandes"} replace />
+            userEmail && userRole === 'manager' ? (
+              <AjouterUtilisateur
+                userEmail={userEmail}
+                userRole={userRole}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
-          } 
+          }
         />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );
