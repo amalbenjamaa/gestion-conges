@@ -2,13 +2,11 @@
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Helpers.php';
 
-class ForgotPasswordController {
+class PasswordResetController {
     private $pdo;
 
     public function __construct() {
         $this->pdo = Database::getPdo();
-        $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->ensureTable();
     }
 
@@ -29,8 +27,8 @@ class ForgotPasswordController {
         ");
     }
 
-    // Étape 1 : Vérifier l'email et générer un code
-    public function verifyEmail($data) {
+    // Étape 1 : Demander un code de réinitialisation
+    public function requestReset($data) {
         $email = trim($data['email'] ?? '');
         
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -45,7 +43,7 @@ class ForgotPasswordController {
             WHERE LOWER(email) = LOWER(?)
         ");
         $stmt->execute([$email]);
-        $user = $stmt->fetch();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
             respondJson(['error' => 'Aucun compte associé à cet email'], 404);
@@ -82,93 +80,73 @@ class ForgotPasswordController {
             'success' => true,
             'message' => 'Code généré avec succès',
             'phone_hint' => $phoneHint,
-            'code' => $code // ⚠️ EN PRODUCTION : envoyer par SMS, ne pas retourner !
+            'code' => $code // ⚠️ EN PRODUCTION : envoyer par SMS, ne pas retourner dans la réponse !
         ]);
     }
 
     // Étape 2 : Vérifier le téléphone et le code
     public function verifyPhone($data) {
-        error_log("=== DEBUG verifyPhone ===");
-        error_log("Data received: " . json_encode($data));
-        
         $email = trim($data['email'] ?? '');
         $phone = trim($data['phone'] ?? '');
         $code = trim($data['code'] ?? '');
-
-        error_log("Email: " . $email);
-        error_log("Phone: " . $phone);
-        error_log("Code: " . $code);
 
         if (!$email || !$phone || !$code) {
             respondJson(['error' => 'Email, téléphone et code requis'], 400);
             return;
         }
 
-        try {
-            // Vérifier que l'email et le téléphone correspondent
-            $stmt = $this->pdo->prepare("
-                SELECT id, numero_telephone 
-                FROM utilisateurs 
-                WHERE LOWER(email) = LOWER(?)
-            ");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch();
+        // Vérifier que l'email et le téléphone correspondent
+        $stmt = $this->pdo->prepare("
+            SELECT id, numero_telephone 
+            FROM utilisateurs 
+            WHERE LOWER(email) = LOWER(?)
+        ");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            error_log("User found: " . json_encode($user));
-
-            if (!$user) {
-                respondJson(['error' => 'Email invalide'], 404);
-                return;
-            }
-
-            // Vérifier que le téléphone correspond
-            error_log("Comparing: " . $user['numero_telephone'] . " vs " . $phone);
-            
-            if ($user['numero_telephone'] !== $phone) {
-                respondJson(['error' => 'Le numéro de téléphone ne correspond pas à cet email'], 403);
-                return;
-            }
-
-            // Vérifier le code
-            $stmt = $this->pdo->prepare("
-                SELECT id 
-                FROM password_reset_codes 
-                WHERE email = ? 
-                AND code = ? 
-                AND used = 0 
-                AND expire_at > NOW()
-            ");
-            $stmt->execute([$email, $code]);
-            $resetCode = $stmt->fetch();
-
-            error_log("Reset code found: " . json_encode($resetCode));
-
-            if (!$resetCode) {
-                respondJson(['error' => 'Code invalide ou expiré'], 403);
-                return;
-            }
-
-            // Générer un token de réinitialisation
-            $resetToken = bin2hex(random_bytes(32));
-
-            // Mettre à jour le code avec le token
-            $stmt = $this->pdo->prepare("
-                UPDATE password_reset_codes 
-                SET reset_token = ? 
-                WHERE id = ?
-            ");
-            $stmt->execute([$resetToken, $resetCode['id']]);
-
-            respondJson([
-                'success' => true,
-                'reset_token' => $resetToken
-            ]);
-
-        } catch (Exception $e) {
-            error_log("ERROR: " . $e->getMessage());
-            error_log("Stack: " . $e->getTraceAsString());
-            respondJson(['error' => 'Erreur serveur: ' . $e->getMessage()], 500);
+        if (!$user) {
+            respondJson(['error' => 'Email invalide'], 404);
+            return;
         }
+
+        // Vérifier que le téléphone correspond
+        if ($user['numero_telephone'] !== $phone) {
+            respondJson(['error' => 'Le numéro de téléphone ne correspond pas à cet email'], 403);
+            return;
+        }
+
+        // Vérifier le code
+        $stmt = $this->pdo->prepare("
+            SELECT id 
+            FROM password_reset_codes 
+            WHERE email = ? 
+            AND code = ? 
+            AND used = 0 
+            AND expire_at > NOW()
+        ");
+        $stmt->execute([$email, $code]);
+        $resetCode = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$resetCode) {
+            respondJson(['error' => 'Code invalide ou expiré'], 403);
+            return;
+        }
+
+        // Générer un token de réinitialisation
+        $resetToken = bin2hex(random_bytes(32));
+
+        // Mettre à jour le code avec le token
+        $stmt = $this->pdo->prepare("
+            UPDATE password_reset_codes 
+            SET reset_token = ? 
+            WHERE id = ?
+        ");
+        $stmt->execute([$resetToken, $resetCode['id']]);
+
+        respondJson([
+            'success' => true,
+            'reset_token' => $resetToken
+        ]);
     }
 
     // Étape 3 : Réinitialiser le mot de passe
@@ -195,7 +173,7 @@ class ForgotPasswordController {
             AND expire_at > NOW()
         ");
         $stmt->execute([$resetToken]);
-        $resetCode = $stmt->fetch();
+        $resetCode = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$resetCode) {
             respondJson(['error' => 'Token invalide ou expiré'], 403);

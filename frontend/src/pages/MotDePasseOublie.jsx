@@ -3,27 +3,23 @@ import { useNavigate } from 'react-router-dom';
 
 function MotDePasseOublie() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Email, 2: Téléphone, 3: Nouveau mot de passe
-  const [formData, setFormData] = useState({
-    email: '',
-    telephone: '',
-    code: '',
-    nouveau_password: '',
-    confirm_password: ''
-  });
+  
+  // États
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [phoneHint, setPhoneHint] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState(false); // ✅ AJOUT
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
-  };
-
-  const handleVerifyEmail = async (e) => {
+  // Étape 1 : Vérifier l'email et générer le code
+  const handleRequestCode = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -32,65 +28,75 @@ function MotDePasseOublie() {
       const res = await fetch('http://localhost:8000/api/forgot-password/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email })
+        body: JSON.stringify({ email })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        setStep(2);
-        setSuccess('Email vérifié ! Entrez votre numéro de téléphone.');
-      } else {
-        setError(data.error || 'Email non trouvé');
+      if (!res.ok) {
+        setError(data.error || 'Erreur lors de la demande');
+        setLoading(false);
+        return;
       }
+
+      setPhoneHint(data.phone_hint);
+      setGeneratedCode(data.code);
+      setStep(2);
     } catch (err) {
-      setError('Erreur de connexion au serveur');
+      setError('Impossible de contacter le serveur');
     } finally {
       setLoading(false);
     }
   };
 
+  // Étape 2 : Vérifier le téléphone et le code
   const handleVerifyPhone = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!email || !phone || !code) {
+      setError('Veuillez remplir tous les champs');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch('http://localhost:8000/api/forgot-password/verify-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: formData.email, 
-          telephone: formData.telephone 
-        })
+        body: JSON.stringify({ email, phone, code })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        setStep(3);
-        setSuccess('Téléphone vérifié ! Créez un nouveau mot de passe.');
-      } else {
-        setError(data.error || 'Numéro de téléphone incorrect');
+      if (!res.ok) {
+        setError(data.error || 'Vérification échouée');
+        setLoading(false);
+        return;
       }
+
+      setResetToken(data.reset_token);
+      setStep(3);
     } catch (err) {
-      setError('Erreur de connexion au serveur');
+      setError('Impossible de contacter le serveur');
     } finally {
       setLoading(false);
     }
   };
 
+  // Étape 3 : Réinitialiser le mot de passe
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (formData.nouveau_password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+    if (newPassword !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
       return;
     }
 
-    if (formData.nouveau_password !== formData.confirm_password) {
-      setError('Les mots de passe ne correspondent pas');
+    if (newPassword.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
@@ -100,175 +106,192 @@ function MotDePasseOublie() {
       const res = await fetch('http://localhost:8000/api/forgot-password/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: formData.email,
-          telephone: formData.telephone,
-          nouveau_password: formData.nouveau_password
-        })
+        body: JSON.stringify({ reset_token: resetToken, new_password: newPassword })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        setSuccess('Mot de passe réinitialisé avec succès !');
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      } else {
-        setError(data.error || 'Erreur lors de la réinitialisation');
+      if (!res.ok) {
+        setError(data.error || 'Réinitialisation échouée');
+        setLoading(false);
+        return;
       }
+
+      // ✅ MODIFICATION : Afficher la notification au lieu de l'alerte
+      setSuccess(true);
+      
+      // Rediriger après 3 secondes
+      setTimeout(() => {
+        navigate('/');
+      }, 3000);
+
     } catch (err) {
-      setError('Erreur de connexion au serveur');
+      setError('Impossible de contacter le serveur');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-block bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-2xl shadow-lg mb-4">
-            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Mot de passe oublié</h1>
+          <p className="text-gray-600 text-sm">Étape {step} sur 3</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
+            {error}
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mot de passe oublié</h1>
-          <p className="text-gray-600">Réinitialisez votre mot de passe en 3 étapes</p>
-        </div>
+        )}
 
-        {/* Indicateur d'étapes */}
-        <div className="flex items-center justify-center mb-8">
-          <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'} font-bold`}>1</div>
-          <div className={`w-16 h-1 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-          <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'} font-bold`}>2</div>
-          <div className={`w-16 h-1 ${step >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-          <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'} font-bold`}>3</div>
-        </div>
-
-        {/* Formulaire */}
-        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl p-8 border border-white/20">
-          {error && (
-            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
+        {/* ✅ NOTIFICATION DE SUCCÈS */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm mb-4 animate-pulse">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="font-semibold">✅ Mot de passe réinitialisé avec succès !</p>
+                <p className="text-xs mt-1">Redirection vers la page de connexion...</p>
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {success && (
-            <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-              <p className="text-green-700 text-sm">{success}</p>
+        {/* ÉTAPE 1 : Demander le code */}
+        {step === 1 && !success && (
+          <form onSubmit={handleRequestCode} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                placeholder="votre.email@entreprise.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
-          )}
 
-          {/* Étape 1 : Email */}
-          {step === 1 && (
-            <form onSubmit={handleVerifyEmail}>
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Adresse email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="votre.email@exemple.com"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-              >
-                {loading ? 'Vérification...' : 'Continuer'}
-              </button>
-            </form>
-          )}
-
-          {/* Étape 2 : Téléphone */}
-          {step === 2 && (
-            <form onSubmit={handleVerifyPhone}>
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Numéro de téléphone
-                </label>
-                <input
-                  type="tel"
-                  name="telephone"
-                  value={formData.telephone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+33 6 12 34 56 78"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-2">Entrez le numéro associé à votre compte</p>
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-              >
-                {loading ? 'Vérification...' : 'Vérifier'}
-              </button>
-            </form>
-          )}
-
-          {/* Étape 3 : Nouveau mot de passe */}
-          {step === 3 && (
-            <form onSubmit={handleResetPassword}>
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Nouveau mot de passe
-                </label>
-                <input
-                  type="password"
-                  name="nouveau_password"
-                  value={formData.nouveau_password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Minimum 6 caractères"
-                  required
-                />
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Confirmer le mot de passe
-                </label>
-                <input
-                  type="password"
-                  name="confirm_password"
-                  value={formData.confirm_password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Retapez le mot de passe"
-                  required
-                />
-                {formData.nouveau_password && formData.confirm_password && formData.nouveau_password !== formData.confirm_password && (
-                  <p className="text-xs text-red-500 mt-1">Les mots de passe ne correspondent pas</p>
-                )}
-              </div>
-              <button
-                type="submit"
-                disabled={loading || formData.nouveau_password !== formData.confirm_password}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-              >
-                {loading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
-              </button>
-            </form>
-          )}
-
-          <div className="mt-6 text-center">
             <button
-              onClick={() => navigate('/login')}
-              className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50"
+            >
+              {loading ? 'Envoi...' : 'Envoyer le code'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="w-full text-gray-600 hover:text-gray-800 text-sm"
             >
               ← Retour à la connexion
             </button>
-          </div>
-        </div>
+          </form>
+        )}
+
+        {/* ÉTAPE 2 : Vérifier téléphone et code */}
+        {step === 2 && !success && (
+          <form onSubmit={handleVerifyPhone} className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm text-blue-800">
+              <p className="mb-1"><strong>Email :</strong> {email}</p>
+              <p>Un code a été généré pour le numéro : <strong>{phoneHint}</strong></p>
+              {generatedCode && (
+                <p className="mt-2 font-mono bg-white px-3 py-2 rounded border">
+                  Code : <strong>{generatedCode}</strong>
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de téléphone</label>
+              <input
+                type="tel"
+                placeholder="0612345678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Code de vérification</label>
+              <input
+                type="text"
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                maxLength={6}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50"
+            >
+              {loading ? 'Vérification...' : 'Vérifier'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full text-gray-600 hover:text-gray-800 text-sm"
+            >
+              ← Retour à l'étape 1
+            </button>
+          </form>
+        )}
+
+        {/* ÉTAPE 3 : Nouveau mot de passe */}
+        {step === 3 && !success && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="bg-green-50 border border-green-200 p-3 rounded-lg text-sm text-green-800 mb-4">
+              ✅ Vérification réussie ! Entrez votre nouveau mot de passe.
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau mot de passe</label>
+              <input
+                type="password"
+                placeholder="Minimum 6 caractères"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
+              <input
+                type="password"
+                placeholder="Répétez le mot de passe"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+                minLength={6}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition font-semibold disabled:opacity-50"
+            >
+              {loading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

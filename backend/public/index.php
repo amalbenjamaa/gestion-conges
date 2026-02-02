@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Charger les fichiers requis
 require_once __DIR__ . '/../src/Database.php';
 
+
 // Charger Helpers si existe
 if (file_exists(__DIR__ . '/../src/Helpers.php')) {
     require_once __DIR__ . '/../src/Helpers.php';
@@ -72,7 +73,7 @@ foreach ($controllers as $controller) {
         error_log("⚠ Manquant: $controller");
     }
 }
-
+require_once __DIR__ . '/../src/PasswordResetController.php';
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -89,7 +90,19 @@ try {
     $request = class_exists('RequestController') ? new RequestController() : null;
     $notification = class_exists('NotificationController') ? new NotificationController() : null;
     $ai = class_exists('AiController') ? new AiController() : null;
-
+    $passwordResetController = new PasswordResetController();
+if ($method === 'POST' && $path === '/api/password-reset/request') {
+    $passwordResetController->requestReset($data);
+    exit;
+}
+if ($method === 'POST' && $path === '/api/password-reset/verify-phone') {
+    $passwordResetController->verifyPhone($data);
+    exit;
+}
+if ($method === 'POST' && $path === '/api/password-reset/reset') {
+    $passwordResetController->resetPassword($data);
+    exit;
+}
     // ==================== ROOT HEALTH ====================
     if ($path === '/' && $method === 'GET') {
         respondJson([

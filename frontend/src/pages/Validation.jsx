@@ -10,37 +10,33 @@ function Validation({ userEmail, userRole, onLogout }) {
   const [toast, setToast] = useState(null);
   const [searchParams] = useSearchParams();
 
+  // ✅ Charger UNIQUEMENT les demandes en attente
   useEffect(() => {
-    fetch('http://localhost:8000/api/requests?status=en_attente', {
-      credentials: 'include'
+  // ✅ Cette ligne filtre par status=en_attente
+  fetch('http://localhost:8000/api/requests?status=en_attente', {
+    credentials: 'include'
+  })
+    .then(res => res.json())
+    .then(data => {
+      const list = Array.isArray(data) ? data : [];
+      console.log('Demandes en attente:', list); // ✅ DEBUG
+      setDemandes(list);
+      setLoading(false);
     })
-      .then(res => res.json())
-      .then(data => {
-        const list = Array.isArray(data) ? data : [];
-        setDemandes(list);
-        const did = searchParams.get('demandeId');
-        if (did) {
-          const num = parseInt(did, 10);
-          if (list.some(d => Number(d.id) === num)) {
-            setSelectedId(num);
-          }
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [searchParams]);
-
+    .catch(() => setLoading(false));
+}, [searchParams]);
   const handleAction = async (id, status) => {
     try {
       const res = await fetch(`http://localhost:8000/api/requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // important pour envoyer le cookie de session
+        credentials: 'include',
         body: JSON.stringify({
           status: status,
           handle_comment: commentaire || null
         })
       });
+      
       if (!res.ok) {
         let apiErr = 'Erreur';
         try {
@@ -52,85 +48,111 @@ function Validation({ userEmail, userRole, onLogout }) {
         throw new Error(apiErr);
       }
 
-      // Retirer la demande de la liste
+      // ✅ Retirer la demande de la liste immédiatement
       setDemandes(demandes.filter(d => d.id !== id));
       setSelectedId(null);
       setCommentaire('');
 
-      // Notifier les autres composants via un événement personnalisé
+      // Notifier les autres composants
       window.dispatchEvent(new CustomEvent('demandeUpdated', { detail: { id, status } }));
 
       setToast({
         type: status === 'validee' ? 'success' : 'error',
         message: status === 'validee' ? 'Demande validée' : 'Demande refusée'
       });
+      
+      // Masquer le toast après 3 secondes
+      setTimeout(() => setToast(null), 3000);
     } catch (error) {
       setToast({
         type: 'error',
         message: 'Erreur: ' + (error?.message || 'Failed to fetch')
       });
+      setTimeout(() => setToast(null), 3000);
     }
   };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
+      {/* Toast de notification */}
       {toast && (
-        <div className={`fixed top-20 right-6 z-30 px-4 py-3 rounded-lg shadow ${toast.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+        <div className={`fixed top-20 right-6 z-30 px-4 py-3 rounded-lg shadow-lg ${
+          toast.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-700' 
+            : 'bg-red-50 border border-red-200 text-red-700'
+        }`}>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">{toast.message}</span>
-            <button className="text-xs text-gray-500 ml-2" onClick={() => setToast(null)}>Fermer</button>
+            <button 
+              className="text-xs text-gray-500 ml-2 hover:text-gray-700" 
+              onClick={() => setToast(null)}
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
+
+      {/* En-tête */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
         <p className="text-gray-600 text-sm">Traitez les demandes de congé en attente de validation</p>
       </div>
-      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
+
+      {/* Contenu principal */}
+      <div className="bg-white/70 backdrop-blur-md p-4 sm:p-6 rounded-lg shadow-md border border-white/20">
         {loading && (
-          <div className="text-center py-8 text-gray-500">Chargement...</div>
-        )}
-        {!loading && demandes.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p>Aucune demande en attente.</p>
+          <div className="text-center py-12 text-gray-500">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p>Chargement des demandes...</p>
           </div>
         )}
+
+        {!loading && demandes.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            <svg className="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-lg font-semibold">Aucune demande en attente</p>
+            <p className="text-sm mt-2">Toutes les demandes ont été traitées ✓</p>
+          </div>
+        )}
+
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">Motif</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white/40 divide-y divide-gray-200">
                 {demandes.map((d) => (
                   <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                           {(d.requester_name || `User ${d.utilisateur_id}`).charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{d.requester_name || `User ${d.utilisateur_id}`}</span>
+                        <span className="text-sm font-medium text-gray-900 truncate">
+                          {d.requester_name || `User ${d.utilisateur_id}`}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold">{d.nb_jours} j</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{d.motif || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold">{d.nb_jours} j</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-700 hidden md:table-cell max-w-xs truncate">{d.motif || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       {selectedId === d.id ? (
-                        <div className="space-y-2 min-w-[300px]">
+                        <div className="space-y-2 min-w-[250px]">
                           <textarea
                             placeholder="Commentaire (optionnel, recommandé pour un refus)"
                             value={commentaire}
@@ -138,16 +160,16 @@ function Validation({ userEmail, userRole, onLogout }) {
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             rows="2"
                           />
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <button
                               onClick={() => handleAction(d.id, 'validee')}
-                              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors font-semibold shadow-sm"
+                              className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors font-semibold shadow-sm"
                             >
                               ✓ Valider
                             </button>
                             <button
                               onClick={() => handleAction(d.id, 'refusee')}
-                              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors font-semibold shadow-sm"
+                              className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors font-semibold shadow-sm"
                             >
                               ✗ Refuser
                             </button>
@@ -156,7 +178,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                                 setSelectedId(null);
                                 setCommentaire('');
                               }}
-                              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                              className="bg-gray-200 text-gray-700 px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition-colors"
                             >
                               Annuler
                             </button>
@@ -165,7 +187,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                       ) : (
                         <button
                           onClick={() => setSelectedId(d.id)}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-semibold shadow-sm"
+                          className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-semibold shadow-sm"
                         >
                           Traiter
                         </button>
