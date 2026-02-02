@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 function MotDePasseOublie() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Email, 2: Téléphone, 3: Nouveau mot de passe
+  const [step, setStep] = useState(1); // 1: Email, 2: Phone+Code, 3: New Password
   const [formData, setFormData] = useState({
     email: '',
     telephone: '',
@@ -11,6 +11,8 @@ function MotDePasseOublie() {
     nouveau_password: '',
     confirm_password: ''
   });
+  const [phoneHint, setPhoneHint] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,13 +25,14 @@ function MotDePasseOublie() {
     setError('');
   };
 
-  const handleVerifyEmail = async (e) => {
+  // Étape 1 : Demander le code de réinitialisation
+  const handleRequestCode = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/forgot-password/verify-email', {
+      const res = await fetch('http://localhost:8000/api/password-reset/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email })
@@ -37,9 +40,10 @@ function MotDePasseOublie() {
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.success) {
+        setPhoneHint(data.phone_hint || '****');
         setStep(2);
-        setSuccess('Email vérifié ! Entrez votre numéro de téléphone.');
+        setSuccess('Un code à 6 chiffres a été généré. Entrez votre numéro de téléphone et le code.');
       } else {
         setError(data.error || 'Email non trouvé');
       }
@@ -50,28 +54,31 @@ function MotDePasseOublie() {
     }
   };
 
+  // Étape 2 : Vérifier le téléphone et le code
   const handleVerifyPhone = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/forgot-password/verify-phone', {
+      const res = await fetch('http://localhost:8000/api/password-reset/verify-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           email: formData.email, 
-          telephone: formData.telephone 
+          phone: formData.telephone,
+          code: formData.code
         })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.success) {
+        setResetToken(data.reset_token);
         setStep(3);
-        setSuccess('Téléphone vérifié ! Créez un nouveau mot de passe.');
+        setSuccess('Téléphone et code vérifiés ! Entrez votre nouveau mot de passe.');
       } else {
-        setError(data.error || 'Numéro de téléphone incorrect');
+        setError(data.error || 'Numéro de téléphone ou code incorrect');
       }
     } catch (err) {
       setError('Erreur de connexion au serveur');
@@ -80,6 +87,7 @@ function MotDePasseOublie() {
     }
   };
 
+  // Étape 3 : Réinitialiser le mot de passe
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setError('');
@@ -97,20 +105,19 @@ function MotDePasseOublie() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/forgot-password/reset', {
+      const res = await fetch('http://localhost:8000/api/password-reset/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          email: formData.email,
-          telephone: formData.telephone,
-          nouveau_password: formData.nouveau_password
+          reset_token: resetToken,
+          new_password: formData.nouveau_password
         })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        setSuccess('Mot de passe réinitialisé avec succès !');
+      if (res.ok && data.success) {
+        setSuccess('Mot de passe réinitialisé avec succès ! Redirection...');
         setTimeout(() => {
           navigate('/login');
         }, 2000);
@@ -163,7 +170,7 @@ function MotDePasseOublie() {
 
           {/* Étape 1 : Email */}
           {step === 1 && (
-            <form onSubmit={handleVerifyEmail}>
+            <form onSubmit={handleRequestCode}>
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Adresse email
@@ -177,21 +184,31 @@ function MotDePasseOublie() {
                   placeholder="votre.email@exemple.com"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-2">
+                  Un code de vérification sera généré pour votre numéro de téléphone
+                </p>
               </div>
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
               >
-                {loading ? 'Vérification...' : 'Continuer'}
+                {loading ? 'Génération...' : 'Envoyer le code'}
               </button>
             </form>
           )}
 
-          {/* Étape 2 : Téléphone */}
+          {/* Étape 2 : Téléphone + Code */}
           {step === 2 && (
             <form onSubmit={handleVerifyPhone}>
-              <div className="mb-6">
+              {phoneHint && (
+                <div className="mb-4 bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <span className="font-semibold">Code généré !</span> Votre numéro se termine par : <span className="font-mono font-bold">{phoneHint}</span>
+                  </p>
+                </div>
+              )}
+              <div className="mb-4">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Numéro de téléphone
                 </label>
@@ -201,10 +218,27 @@ function MotDePasseOublie() {
                   value={formData.telephone}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+33 6 12 34 56 78"
+                  placeholder="+33 6 12 34 56 78 ou 0612345678"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-2">Entrez le numéro associé à votre compte</p>
+                <p className="text-xs text-gray-500 mt-1">Entrez le numéro associé à votre compte</p>
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Code de vérification (6 chiffres)
+                </label>
+                <input
+                  type="text"
+                  name="code"
+                  value={formData.code}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-lg tracking-wider text-center"
+                  placeholder="123456"
+                  maxLength="6"
+                  pattern="\d{6}"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Le code expire dans 15 minutes</p>
               </div>
               <button
                 type="submit"
@@ -248,6 +282,9 @@ function MotDePasseOublie() {
                 />
                 {formData.nouveau_password && formData.confirm_password && formData.nouveau_password !== formData.confirm_password && (
                   <p className="text-xs text-red-500 mt-1">Les mots de passe ne correspondent pas</p>
+                )}
+                {formData.nouveau_password && formData.confirm_password && formData.nouveau_password === formData.confirm_password && (
+                  <p className="text-xs text-green-500 mt-1">✓ Les mots de passe correspondent</p>
                 )}
               </div>
               <button

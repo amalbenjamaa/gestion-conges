@@ -120,6 +120,16 @@ function Login({ onLogin }) {
           >
             Se connecter
           </button>
+          
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/mot-de-passe-oublie')}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline"
+            >
+              Mot de passe oublié ?
+            </button>
+          </div>
         </form>
       </div>
     </div>
