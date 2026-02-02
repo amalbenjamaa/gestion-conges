@@ -236,9 +236,11 @@ function MotDePasseOublie() {
                   placeholder="123456"
                   maxLength="6"
                   pattern="\d{6}"
+                  inputMode="numeric"
+                  aria-describedby="code-help"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Le code expire dans 15 minutes</p>
+                <p id="code-help" className="text-xs text-gray-500 mt-1">Le code expire dans 15 minutes</p>
               </div>
               <button
                 type="submit"

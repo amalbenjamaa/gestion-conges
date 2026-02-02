@@ -55,7 +55,7 @@ class PasswordResetController {
             }
 
             // Générer un code à 6 chiffres
-            $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             // Date d'expiration (15 minutes)
             $expireAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
@@ -69,7 +69,10 @@ class PasswordResetController {
 
             // Masquer le numéro de téléphone (afficher seulement les 4 derniers chiffres)
             $phone = $user['numero_telephone'];
-            $phoneHint = '***' . substr($phone, -4);
+            $phoneLength = strlen($phone);
+            $phoneHint = $phoneLength > 4 
+                ? '***' . substr($phone, -4) 
+                : str_repeat('*', max(0, $phoneLength - 1)) . substr($phone, -1);
 
             respondJson([
                 'success' => true,
