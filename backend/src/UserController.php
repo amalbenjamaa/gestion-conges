@@ -50,6 +50,7 @@ class UserController {
         'numero_telephone' => $telephone
     ], 201);
 }
+
     public function getAllUsers() {
         $stmt = $this->pdo->query("
             SELECT id, nom_complet, email, role_id, solde_total, solde_consomme, avatar_url 

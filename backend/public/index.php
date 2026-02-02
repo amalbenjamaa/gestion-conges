@@ -4,11 +4,7 @@ ini_set('display_errors', 1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-$allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:4173',
-];
-
+$allowedOrigins = ['http://localhost:5173', 'http://localhost:4173'];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 if (in_array($origin, $allowedOrigins)) {
@@ -18,7 +14,7 @@ if (in_array($origin, $allowedOrigins)) {
 }
 
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-User-Id, X-User-Email, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -26,16 +22,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Charger les fichiers requis
+// Charger Database
 require_once __DIR__ . '/../src/Database.php';
 
-
-// Charger Helpers si existe
+// Charger Helpers
 if (file_exists(__DIR__ . '/../src/Helpers.php')) {
     require_once __DIR__ . '/../src/Helpers.php';
 }
 
-// Fonction respondJson si pas dans Helpers
+// Fonctions utilitaires
 if (!function_exists('respondJson')) {
     function respondJson($data, $status = 200) {
         http_response_code($status);
@@ -44,7 +39,6 @@ if (!function_exists('respondJson')) {
     }
 }
 
-// Fonction getJsonInput si pas dans Helpers
 if (!function_exists('getJsonInput')) {
     function getJsonInput() {
         $input = file_get_contents('php://input');
@@ -61,6 +55,7 @@ $controllers = [
     'RequestController',
     'NotificationController',
     'ForgotPasswordController',
+    'PasswordResetController',
     'AiController'
 ];
 
@@ -68,18 +63,15 @@ foreach ($controllers as $controller) {
     $path = __DIR__ . "/../src/$controller.php";
     if (file_exists($path)) {
         require_once $path;
-        error_log("✓ Chargé: $controller");
-    } else {
-        error_log("⚠ Manquant: $controller");
     }
 }
-require_once __DIR__ . '/../src/PasswordResetController.php';
+
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
 
 error_log("========================================");
 error_log("REQUEST: $method $path");
-error_log("Origin: " . ($_SERVER['HTTP_ORIGIN'] ?? 'none'));
+error_log("Query params: " . print_r($_GET, true));
 
 try {
     // Initialiser les contrôleurs
@@ -89,337 +81,158 @@ try {
     $stats = class_exists('StatsController') ? new StatsController() : null;
     $request = class_exists('RequestController') ? new RequestController() : null;
     $notification = class_exists('NotificationController') ? new NotificationController() : null;
+    $forgot = class_exists('ForgotPasswordController') ? new ForgotPasswordController() : null;
+    $passwordReset = class_exists('PasswordResetController') ? new PasswordResetController() : null;
     $ai = class_exists('AiController') ? new AiController() : null;
-    $passwordResetController = new PasswordResetController();
-if ($method === 'POST' && $path === '/api/password-reset/request') {
-    $passwordResetController->requestReset($data);
-    exit;
-}
-if ($method === 'POST' && $path === '/api/password-reset/verify-phone') {
-    $passwordResetController->verifyPhone($data);
-    exit;
-}
-if ($method === 'POST' && $path === '/api/password-reset/reset') {
-    $passwordResetController->resetPassword($data);
-    exit;
-}
-    // ==================== ROOT HEALTH ====================
-    if ($path === '/' && $method === 'GET') {
-        respondJson([
-            'status' => 'ok',
-            'service' => 'gestion-conges-backend',
-            'routes' => [
-                'POST /api/login',
-                'POST /api/logout',
-                'GET /api/me',
-                'GET /api/users',
-                'POST /api/users',
-                'GET /api/users/{id}',
-                'PATCH /api/users/{id}',
-                'DELETE /api/users/{id}',
-                'GET /api/stats',
-                'GET /api/demandes',
-                'POST /api/demandes',
-                'GET /api/demandes/{id}',
-                'PATCH /api/demandes/{id}',
-                'DELETE /api/demandes/{id}',
-                'GET /api/requests',
-                'POST /api/requests',
-                'GET /api/notifications',
-                'POST /api/notifications/mark-read',
-                'GET /api/collaborateurs',
-                'GET /api/calendar',
-                'POST /api/ai/chat'
-            ]
-        ]);
-    }
 
     // ==================== AUTH ====================
     if ($path === '/api/login' && $method === 'POST') {
-        error_log("→ Route: LOGIN");
-        if ($auth) {
-            $auth->login(getJsonInput());
-        } else {
-            respondJson(['error' => 'AuthController non disponible'], 500);
-        }
+        $auth && $auth->login(getJsonInput());
     }
 
     if ($path === '/api/logout' && $method === 'POST') {
-        error_log("→ Route: LOGOUT");
-        if ($auth) {
-            $auth->logout();
-        } else {
-            respondJson(['error' => 'AuthController non disponible'], 500);
-        }
+        $auth && $auth->logout();
     }
+
     if ($path === '/api/me' && $method === 'GET') {
-        error_log("→ Route: ME");
-        if ($auth && method_exists($auth, 'me')) {
-            $auth->me();
-        } else {
-            respondJson(['error' => 'Méthode me non disponible'], 500);
-        }
+        $auth && method_exists($auth, 'me') && $auth->me();
     }
+
     if ($path === '/api/me/avatar' && $method === 'POST') {
-        error_log("→ Route: UPLOAD AVATAR (ME)");
-        if ($auth && method_exists($auth, 'uploadAvatar')) {
-            $auth->uploadAvatar();
-        } else {
-            respondJson(['error' => 'Méthode uploadAvatar non disponible'], 500);
-        }
+        $auth && method_exists($auth, 'uploadAvatar') && $auth->uploadAvatar();
     }
 
     // ==================== USERS ====================
     if ($path === '/api/users' && $method === 'GET') {
-        error_log("→ Route: GET USERS");
-        if ($user) {
-            $user->getAllUsers();
-        } else {
-            respondJson(['error' => 'UserController non disponible'], 500);
-        }
+        $user && $user->getAllUsers();
     }
 
     if ($path === '/api/users' && $method === 'POST') {
-        error_log("→ Route: CREATE USER");
-        if ($user) {
-            $user->createUser(getJsonInput());
-        } else {
-            respondJson(['error' => 'UserController non disponible'], 500);
-        }
+        $user && $user->createUser(getJsonInput());
     }
 
     if (preg_match('#^/api/users/(\d+)$#', $path, $matches)) {
         $userId = $matches[1];
         
         if ($method === 'GET') {
-            error_log("→ Route: GET USER $userId");
-            if ($user && method_exists($user, 'getUserById')) {
-                $user->getUserById($userId);
-            } else {
-                respondJson(['error' => 'Méthode getUserById non disponible'], 500);
-            }
+            $user && method_exists($user, 'getUserById') && $user->getUserById($userId);
         }
         
         if ($method === 'PATCH') {
-            error_log("→ Route: UPDATE USER $userId");
-            if ($user && method_exists($user, 'updateUser')) {
-                $user->updateUser($userId, getJsonInput());
-            } else {
-                respondJson(['error' => 'Méthode updateUser non disponible'], 500);
-            }
+            $user && method_exists($user, 'updateUser') && $user->updateUser($userId, getJsonInput());
         }
         
         if ($method === 'DELETE') {
-            error_log("→ Route: DELETE USER $userId");
-            if ($user && method_exists($user, 'deleteUser')) {
-                $user->deleteUser($userId);
-            } else {
-                respondJson(['error' => 'Méthode deleteUser non disponible'], 500);
-            }
+            $user && method_exists($user, 'deleteUser') && $user->deleteUser($userId);
         }
     }
-    // ==================== FORGOT PASSWORD ====================
-$forgot = class_exists('ForgotPasswordController') ? new ForgotPasswordController() : null;
 
-if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
-    error_log("→ Route: FORGOT PASSWORD - VERIFY EMAIL");
-    if ($forgot) {
-        $forgot->verifyEmail(getJsonInput());
-    } else {
-        respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    // ==================== PASSWORD RESET ====================
+    if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
+        $forgot && $forgot->verifyEmail(getJsonInput());
     }
-}
 
-if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
-    error_log("→ Route: FORGOT PASSWORD - VERIFY PHONE");
-    if ($forgot) {
-        $forgot->verifyPhone(getJsonInput());
-    } else {
-        respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
+        $forgot && $forgot->verifyPhone(getJsonInput());
     }
-}
 
-if ($path === '/api/forgot-password/reset' && $method === 'POST') {
-    error_log("→ Route: FORGOT PASSWORD - RESET");
-    if ($forgot) {
-        $forgot->resetPassword(getJsonInput());
-    } else {
-        respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    if ($path === '/api/forgot-password/reset' && $method === 'POST') {
+        $forgot && $forgot->resetPassword(getJsonInput());
     }
-}
+
+    if ($path === '/api/password-reset/request' && $method === 'POST') {
+        $passwordReset && $passwordReset->requestReset(getJsonInput());
+    }
+
+    if ($path === '/api/password-reset/verify-phone' && $method === 'POST') {
+        $passwordReset && $passwordReset->verifyPhone(getJsonInput());
+    }
+
+    if ($path === '/api/password-reset/reset' && $method === 'POST') {
+        $passwordReset && $passwordReset->resetPassword(getJsonInput());
+    }
 
     // ==================== STATS ====================
     if ($path === '/api/stats' && $method === 'GET') {
-        error_log("→ Route: GET STATS");
-        if ($stats) {
-            $stats->getStats();
-        } else {
-            respondJson(['error' => 'StatsController non disponible'], 500);
-        }
+        $stats && $stats->getStats();
     }
 
     // ==================== DEMANDES ====================
     if ($path === '/api/demandes' && $method === 'GET') {
-        error_log("→ Route: GET DEMANDES");
-        if ($demande) {
-            $demande->getAllDemandes();
-        } else {
-            respondJson(['error' => 'DemandeController non disponible'], 500);
-        }
+        $demande && $demande->getAllDemandes();
     }
 
     if ($path === '/api/demandes' && $method === 'POST') {
-        error_log("→ Route: CREATE DEMANDE");
-        if ($demande) {
-            $demande->createDemande(getJsonInput());
-        } else {
-            respondJson(['error' => 'DemandeController non disponible'], 500);
-        }
+        $demande && $demande->createDemande(getJsonInput());
     }
 
     if (preg_match('#^/api/demandes/(\d+)$#', $path, $matches)) {
         $demandeId = $matches[1];
         
         if ($method === 'GET') {
-            error_log("→ Route: GET DEMANDE $demandeId");
-            if ($demande && method_exists($demande, 'getDemandeById')) {
-                $demande->getDemandeById($demandeId);
-            } else {
-                respondJson(['error' => 'Méthode getDemandeById non disponible'], 500);
-            }
+            $demande && method_exists($demande, 'getDemandeById') && $demande->getDemandeById($demandeId);
         }
         
         if ($method === 'PATCH') {
-            error_log("→ Route: UPDATE DEMANDE $demandeId");
-            if ($demande && method_exists($demande, 'updateDemande')) {
-                $demande->updateDemande($demandeId, getJsonInput());
-            } else {
-                respondJson(['error' => 'Méthode updateDemande non disponible'], 500);
-            }
+            $demande && method_exists($demande, 'updateDemande') && $demande->updateDemande($demandeId, getJsonInput());
         }
         
         if ($method === 'DELETE') {
-            error_log("→ Route: DELETE DEMANDE $demandeId");
-            if ($demande && method_exists($demande, 'deleteDemande')) {
-                $demande->deleteDemande($demandeId);
-            } else {
-                respondJson(['error' => 'Méthode deleteDemande non disponible'], 500);
-            }
+            $demande && method_exists($demande, 'deleteDemande') && $demande->deleteDemande($demandeId);
         }
     }
 
     // ==================== REQUESTS ====================
-    if ($request) {
-        if ($path === '/api/requests' && $method === 'GET') {
-            error_log("→ Route: GET REQUESTS");
-            if (method_exists($request, 'listRequests')) {
-                $request->listRequests($_GET);
-            } else {
-                respondJson(['error' => 'Méthode listRequests non disponible'], 500);
-            }
-        }
-
-        if ($path === '/api/requests' && $method === 'POST') {
-            error_log("→ Route: CREATE REQUEST");
-            if (method_exists($request, 'createRequest')) {
-                $request->createRequest(getJsonInput());
-            } else {
-                respondJson(['error' => 'Méthode createRequest non disponible'], 500);
-            }
+    if ($path === '/api/requests' && $method === 'GET') {
+        error_log("→ Route: GET REQUESTS avec params: " . print_r($_GET, true));
+        if ($request && method_exists($request, 'listRequests')) {
+            $request->listRequests($_GET);
+        } else {
+            respondJson(['error' => 'RequestController non disponible'], 500);
         }
     }
 
-    // ==================== REQUEST STATUS ====================
-    if (preg_match('#^/api/requests/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
-        $rid = (int)$m[1];
-        error_log("→ Route: UPDATE REQUEST STATUS $rid");
+    if ($path === '/api/requests' && $method === 'POST') {
+        $request && method_exists($request, 'createRequest') && $request->createRequest(getJsonInput());
+    }
+
+    if (preg_match('#^/api/requests/(\d+)/status$#', $path, $matches) && $method === 'PATCH') {
+        $rid = (int)$matches[1];
         if ($request && method_exists($request, 'updateStatus')) {
             $payload = getJsonInput();
-            $status = (string)($payload['status'] ?? '');
-            $comment = $payload['handle_comment'] ?? null;
-            $request->updateStatus($rid, $status, $comment);
-        } else {
-            respondJson(['error' => 'Méthode updateStatus non disponible'], 500);
+            $request->updateStatus($rid, $payload['status'] ?? '', $payload['handle_comment'] ?? null);
         }
     }
 
     // ==================== COLLABORATEURS ====================
     if ($path === '/api/collaborateurs' && $method === 'GET') {
-        error_log("→ Route: GET COLLABORATEURS");
-        if ($request && method_exists($request, 'listCollaborateurs')) {
-            $request->listCollaborateurs();
-        } else {
-            respondJson(['error' => 'Méthode listCollaborateurs non disponible'], 500);
-        }
+        $request && method_exists($request, 'listCollaborateurs') && $request->listCollaborateurs();
     }
 
     // ==================== CALENDAR ====================
     if ($path === '/api/calendar' && $method === 'GET') {
-        error_log("→ Route: GET CALENDAR");
-        if ($request && method_exists($request, 'getCalendarEvents')) {
-            $request->getCalendarEvents($_GET);
-        } else {
-            respondJson(['error' => 'Méthode getCalendarEvents non disponible'], 500);
-        }
+        $request && method_exists($request, 'getCalendarEvents') && $request->getCalendarEvents($_GET);
     }
 
     // ==================== NOTIFICATIONS ====================
-    if ($notification) {
-        if ($path === '/api/notifications' && $method === 'GET') {
-            error_log("→ Route: LIST NOTIFICATIONS (mine)");
-            if (method_exists($notification, 'listMine')) {
-                $notification->listMine();
-            } else {
-                respondJson(['error' => 'Méthode listMine non disponible'], 500);
-            }
-        }
-        if ($path === '/api/notifications/mark-read' && $method === 'POST') {
-            error_log("→ Route: MARK ALL READ");
-            if (method_exists($notification, 'markAllRead')) {
-                $notification->markAllRead();
-            } else {
-                respondJson(['error' => 'Méthode markAllRead non disponible'], 500);
-            }
-        }
+    if ($path === '/api/notifications' && $method === 'GET') {
+        $notification && method_exists($notification, 'listMine') && $notification->listMine();
+    }
+
+    if ($path === '/api/notifications/mark-read' && $method === 'POST') {
+        $notification && method_exists($notification, 'markAllRead') && $notification->markAllRead();
     }
 
     // ==================== AI ====================
-    if ($ai) {
-        if ($path === '/api/ai/chat' && $method === 'POST') {
-            error_log("→ Route: AI CHAT");
-            if (method_exists($ai, 'chat')) {
-                $ai->chat(getJsonInput());
-            }
-        }
+    if ($path === '/api/ai/chat' && $method === 'POST') {
+        $ai && method_exists($ai, 'chat') && $ai->chat(getJsonInput());
     }
 
     // ==================== 404 ====================
     error_log("✗ Route non trouvée: $method $path");
-    error_log("========================================");
-    respondJson([
-        'error' => 'Route non trouvée',
-        'method' => $method,
-        'path' => $path,
-        'available_routes' => [
-            'POST /api/login',
-            'POST /api/logout',
-            'GET /api/users',
-            'POST /api/users',
-            'GET /api/users/{id}',
-            'PATCH /api/users/{id}',
-            'DELETE /api/users/{id}',
-            'GET /api/stats',
-            'GET /api/demandes',
-            'POST /api/demandes',
-            'GET /api/demandes/{id}',
-            'PATCH /api/demandes/{id}',
-            'DELETE /api/demandes/{id}',
-        ]
-    ], 404);
+    respondJson(['error' => 'Route non trouvée', 'method' => $method, 'path' => $path], 404);
 
 } catch (Exception $e) {
     error_log("✗ EXCEPTION: " . $e->getMessage());
-    error_log("Stack: " . $e->getTraceAsString());
-    error_log("========================================");
     respondJson(['error' => $e->getMessage()], 500);
 }

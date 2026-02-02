@@ -10,22 +10,48 @@ function Validation({ userEmail, userRole, onLogout }) {
   const [toast, setToast] = useState(null);
   const [searchParams] = useSearchParams();
 
-  // ✅ Charger UNIQUEMENT les demandes en attente
-  useEffect(() => {
-  // ✅ Cette ligne filtre par status=en_attente
-  fetch('http://localhost:8000/api/requests?status=en_attente', {
-    credentials: 'include'
-  })
-    .then(res => res.json())
-    .then(data => {
-      const list = Array.isArray(data) ? data : [];
-      console.log('Demandes en attente:', list); // ✅ DEBUG
-      setDemandes(list);
-      setLoading(false);
+  const loadDemandes = () => {
+    console.log('🔄 Chargement des demandes en attente...');
+    setLoading(true);
+    
+    fetch('http://localhost:8000/api/requests?status=en_attente', {
+      credentials: 'include'
     })
-    .catch(() => setLoading(false));
-}, [searchParams]);
+      .then(res => {
+        console.log('📡 Réponse API reçue, status:', res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log('📦 Données reçues:', data);
+        console.log('📊 Nombre de demandes:', Array.isArray(data) ? data.length : 0);
+        
+        const list = Array.isArray(data) ? data : [];
+        setDemandes(list);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('❌ Erreur chargement:', err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    loadDemandes();
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      console.log('🔔 Événement demandeUpdated reçu');
+      loadDemandes();
+    };
+
+    window.addEventListener('demandeUpdated', handleUpdate);
+    return () => window.removeEventListener('demandeUpdated', handleUpdate);
+  }, []);
+
   const handleAction = async (id, status) => {
+    console.log(`🎯 Action: ${status} sur demande ${id}`);
+    
     try {
       const res = await fetch(`http://localhost:8000/api/requests/${id}/status`, {
         method: 'PATCH',
@@ -38,138 +64,137 @@ function Validation({ userEmail, userRole, onLogout }) {
       });
       
       if (!res.ok) {
-        let apiErr = 'Erreur';
-        try {
-          const data = await res.json();
-          if (data?.error) apiErr = data.error;
-        } catch {
-          // on garde le message générique
-        }
-        throw new Error(apiErr);
+        const data = await res.json();
+        throw new Error(data?.error || 'Erreur');
       }
 
-      // ✅ Retirer la demande de la liste immédiatement
-      setDemandes(demandes.filter(d => d.id !== id));
+      console.log(`✅ Demande ${id} traitée avec succès`);
+      
+      // Retirer de la liste
+      setDemandes(prev => {
+        const newList = prev.filter(d => d.id !== id);
+        console.log(`📋 Demandes restantes: ${newList.length}`);
+        return newList;
+      });
+      
       setSelectedId(null);
       setCommentaire('');
 
-      // Notifier les autres composants
       window.dispatchEvent(new CustomEvent('demandeUpdated', { detail: { id, status } }));
 
       setToast({
         type: status === 'validee' ? 'success' : 'error',
-        message: status === 'validee' ? 'Demande validée' : 'Demande refusée'
+        message: status === 'validee' ? '✓ Demande validée' : '✗ Demande refusée'
       });
       
-      // Masquer le toast après 3 secondes
       setTimeout(() => setToast(null), 3000);
     } catch (error) {
+      console.error('❌ Erreur action:', error);
       setToast({
         type: 'error',
-        message: 'Erreur: ' + (error?.message || 'Failed to fetch')
+        message: 'Erreur: ' + error.message
       });
       setTimeout(() => setToast(null), 3000);
     }
   };
 
+  console.log('🎨 Rendu Validation - Demandes:', demandes.length, 'Loading:', loading);
+
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-      {/* Toast de notification */}
       {toast && (
-        <div className={`fixed top-20 right-6 z-30 px-4 py-3 rounded-lg shadow-lg ${
-          toast.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-700' 
-            : 'bg-red-50 border border-red-200 text-red-700'
+        <div className={`fixed top-20 right-6 z-50 px-6 py-4 rounded-lg shadow-xl ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">{toast.message}</span>
-            <button 
-              className="text-xs text-gray-500 ml-2 hover:text-gray-700" 
-              onClick={() => setToast(null)}
-            >
-              ✕
-            </button>
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-semibold">{toast.message}</span>
+            <button className="text-white/80 hover:text-white" onClick={() => setToast(null)}>✕</button>
           </div>
         </div>
       )}
 
-      {/* En-tête */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Validation des Demandes</h2>
-        <p className="text-gray-600 text-sm">Traitez les demandes de congé en attente de validation</p>
+        <p className="text-gray-600 text-sm">
+          Traitez uniquement les demandes en attente
+          {demandes.length > 0 && (
+            <span className="ml-2 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold">
+              {demandes.length} en attente
+            </span>
+          )}
+        </p>
       </div>
 
-      {/* Contenu principal */}
       <div className="bg-white/70 backdrop-blur-md p-4 sm:p-6 rounded-lg shadow-md border border-white/20">
-        {loading && (
-          <div className="text-center py-12 text-gray-500">
+        {loading ? (
+          <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Chargement des demandes...</p>
+            <p className="text-gray-500">Chargement des demandes...</p>
           </div>
-        )}
-
-        {!loading && demandes.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            <svg className="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        ) : demandes.length === 0 ? (
+          <div className="text-center py-16">
+            <svg className="w-24 h-24 mx-auto text-green-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-lg font-semibold">Aucune demande en attente</p>
-            <p className="text-sm mt-2">Toutes les demandes ont été traitées ✓</p>
+            <p className="text-xl font-bold text-gray-700 mb-2">Aucune demande en attente</p>
+            <p className="text-sm text-gray-500">Toutes les demandes ont été traitées ✓</p>
           </div>
-        )}
-
-        {!loading && demandes.length > 0 && (
+        ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50/50">
                 <tr>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Employé</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">Motif</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Employé</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Type</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Début</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Fin</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Jours</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden lg:table-cell">Motif</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white/40 divide-y divide-gray-200">
                 {demandes.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={d.id} className="hover:bg-blue-50 transition-colors">
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                           {(d.requester_name || `User ${d.utilisateur_id}`).charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <span className="text-sm font-medium text-gray-900">
                           {d.requester_name || `User ${d.utilisateur_id}`}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                        {d.type_name || 'N/A'}
+                      </span>
+                    </td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold">{d.nb_jours} j</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-700 hidden md:table-cell max-w-xs truncate">{d.motif || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{d.nb_jours} j</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-700 hidden lg:table-cell">{d.motif || '-'}</td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       {selectedId === d.id ? (
-                        <div className="space-y-2 min-w-[250px]">
+                        <div className="space-y-2 min-w-[280px]">
                           <textarea
-                            placeholder="Commentaire (optionnel, recommandé pour un refus)"
+                            placeholder="Commentaire (optionnel)"
                             value={commentaire}
                             onChange={e => setCommentaire(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                             rows="2"
                           />
-                          <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-2">
                             <button
                               onClick={() => handleAction(d.id, 'validee')}
-                              className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors font-semibold shadow-sm"
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 font-semibold"
                             >
                               ✓ Valider
                             </button>
                             <button
                               onClick={() => handleAction(d.id, 'refusee')}
-                              className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors font-semibold shadow-sm"
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 font-semibold"
                             >
                               ✗ Refuser
                             </button>
@@ -178,7 +203,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                                 setSelectedId(null);
                                 setCommentaire('');
                               }}
-                              className="bg-gray-200 text-gray-700 px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300"
                             >
                               Annuler
                             </button>
@@ -187,7 +212,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                       ) : (
                         <button
                           onClick={() => setSelectedId(d.id)}
-                          className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-semibold shadow-sm"
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 font-semibold"
                         >
                           Traiter
                         </button>

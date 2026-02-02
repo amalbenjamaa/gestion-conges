@@ -16,20 +16,27 @@ class RequestController
         $this->notif = new NotificationController();
     }
 
-   public function listRequests(array $params = []): void
+  public function listRequests(array $params = []): void
 {
     error_log("=== LIST REQUESTS ===");
+    error_log("Params reçus: " . print_r($params, true));
     
     try {
-        // Filtrer par utilisateur si demandé
+        // ✅ Récupérer TOUS les filtres possibles
         $userId = $params['user_id'] ?? null;
+        $status = $params['status'] ?? null;  // ✅ AJOUTER
+        $recent = $params['recent'] ?? null;  // ✅ AJOUTER (pour Dashboard)
+        
+        error_log("Filtre user_id: " . ($userId ?? 'aucun'));
+        error_log("Filtre status: " . ($status ?? 'aucun'));
+        error_log("Filtre recent: " . ($recent ?? 'aucun'));
         
         $sql = "
             SELECT 
                 d.id,
                 d.utilisateur_id,
-                u.nom_complet as nom_utilisateur,
-                u.email as email_utilisateur,
+                u.nom_complet as requester_name,
+                u.email as requester_email,
                 d.type_id,
                 tc.nom as type_name,
                 u.avatar_url,
@@ -42,32 +49,46 @@ class RequestController
             FROM demandes d
             JOIN utilisateurs u ON u.id = d.utilisateur_id
             LEFT JOIN types_conges tc ON tc.id = d.type_id
+            WHERE 1=1
         ";
         
-        // Ajouter le filtre si user_id est fourni
+        $bindParams = [];
+        
+        // ✅ Filtre par utilisateur (pour page "Mes Demandes")
         if ($userId) {
-            $sql .= " WHERE d.utilisateur_id = :user_id";
+            $sql .= " AND d.utilisateur_id = :user_id";
+            $bindParams[':user_id'] = (int)$userId;
         }
         
-        // IMPORTANT : Trier par date de demande décroissante (plus récent en premier)
+        // ✅ Filtre par statut (pour page "Validation")
+        if ($status) {
+            $sql .= " AND d.statut = :status";
+            $bindParams[':status'] = $status;
+        }
+        
+        // ✅ Filtre par date récente (pour Dashboard)
+        if ($recent) {
+            $sql .= " AND d.date_demande >= DATE_SUB(NOW(), INTERVAL 3 DAY)";
+        }
+        
+        // Trier par date décroissante
         $sql .= " ORDER BY d.date_demande DESC, d.id DESC";
         
+        error_log("SQL: " . $sql);
+        error_log("Bind params: " . print_r($bindParams, true));
+        
         $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($bindParams);
         
-        if ($userId) {
-            $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-        }
-        
-        $stmt->execute();
         $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        error_log("Found " . count($demandes) . " requests (sorted by date DESC)");
+        error_log("✅ Résultats: " . count($demandes) . " demandes trouvées");
         
         respondJson($demandes);
         
     } catch (PDOException $e) {
-        error_log("ERREUR LIST REQUESTS: " . $e->getMessage());
-        respondJson(['error' => 'Erreur lors de la récupération des demandes: ' . $e->getMessage()], 500);
+        error_log("❌ ERREUR LIST REQUESTS: " . $e->getMessage());
+        respondJson(['error' => 'Erreur: ' . $e->getMessage()], 500);
     }
 }
 
@@ -317,84 +338,44 @@ class RequestController
     }
 
     // GET /api/stats - Statistiques réelles
-    public function getStats(): void
-    {
-        $currentUserId = getCurrentUserId();
-        
+   public function getStats(): void
+{
+    try {
         // Total employes
         $sql = "SELECT COUNT(*) FROM utilisateurs u JOIN roles r ON r.id = u.role_id WHERE r.nom = 'employe'";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        $totalEmployes = (int)$stmt->fetchColumn();
+        $totalEmployes = (int)$this->pdo->query($sql)->fetchColumn();
 
-        // En congé
+        // En congé aujourd'hui
         $sql = "
             SELECT COUNT(DISTINCT d.utilisateur_id) 
-            FROM demandes d 
+            FROM demandes d
             JOIN utilisateurs u ON u.id = d.utilisateur_id
             JOIN roles r ON r.id = u.role_id
             WHERE d.statut = 'validee' 
             AND r.nom = 'employe'
             AND CURDATE() BETWEEN d.date_debut AND d.date_fin";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        $enConge = (int)$stmt->fetchColumn();
+        $enConge = (int)$this->pdo->query($sql)->fetchColumn();
 
         $presentAujourdhui = $totalEmployes - $enConge;
         
         // Demandes en attente
         $sql = "
             SELECT COUNT(*) 
-            FROM demandes d 
-            JOIN utilisateurs u ON u.id = d.utilisateur_id 
-            JOIN roles r ON r.id = u.role_id
-            WHERE d.statut = 'en_attente' 
-            AND r.nom = 'employe'";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        $demandesEnAttente = (int)$stmt->fetchColumn();
-
-        // Répartition par type
-        $sql = "
-            SELECT t.nom as type, COUNT(*) as count, SUM(d.nb_jours) as total_jours
             FROM demandes d
-            JOIN utilisateurs u ON u.id = d.utilisateur_id
-            JOIN roles r ON r.id = u.role_id
-            JOIN types_conges t ON t.id = d.type_id
-            WHERE d.statut = 'validee'
-            AND r.nom = 'employe'
-            GROUP BY t.nom
-        ";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        $byType = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Évolution mensuelle
-        $sql = "
-            SELECT 
-                DATE_FORMAT(d.date_demande, '%Y-%m') as month,
-                COUNT(*) as count,
-                SUM(d.nb_jours) as total_jours
-            FROM demandes d
-            JOIN utilisateurs u ON u.id = d.utilisateur_id
-            JOIN roles r ON r.id = u.role_id
-            WHERE d.statut = 'validee'
-            AND r.nom = 'employe'
-            GROUP BY DATE_FORMAT(d.date_demande, '%Y-%m')
-            ORDER BY month DESC
-            LIMIT 12
-        ";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        $perMonth = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            WHERE d.statut = 'en_attente'";
+        $demandesEnAttente = (int)$this->pdo->query($sql)->fetchColumn();
 
         respondJson([
-            'totalEmployes' => $totalEmployes,
-            'presentAujourdhui' => $presentAujourdhui,
-            'enConge' => $enConge,
-            'demandesEnAttente' => $demandesEnAttente,
-            'byType' => $byType,
-            'perMonth' => $perMonth
+            'total_employes' => $totalEmployes,
+            'present_aujourdhui' => $presentAujourdhui,
+            'conges_en_cours' => $enConge,
+            'conges_en_attente' => $demandesEnAttente,
+            'taux_absence' => $totalEmployes > 0 ? round(($enConge / $totalEmployes) * 100, 1) : 0
         ]);
+        
+    } catch (PDOException $e) {
+        error_log("❌ ERREUR STATS: " . $e->getMessage());
+        respondJson(['error' => 'Erreur: ' . $e->getMessage()], 500);
     }
+}
 }

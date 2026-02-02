@@ -16,21 +16,25 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
 
   useEffect(() => {
     if (!userId) {
-      setTimeout(() => setLoading(false), 0);
+      setLoading(false);
       return;
     }
-    setTimeout(() => setLoading(true), 0);
+    
+    setLoading(true);
+    
+    // ✅ PAS DE FILTRE status - On veut TOUTES les demandes de l'utilisateur
     fetch(`http://localhost:8000/api/requests?user_id=${userId}`, {
       credentials: 'include'
     })
       .then((res) => res.json())
       .then((data) => {
+        console.log('Mes demandes:', data); // Debug
         setDemandes(Array.isArray(data) ? data : []);
-        setTimeout(() => setLoading(false), 0);
+        setLoading(false);
       })
       .catch(() => {
         setError('Erreur lors du chargement des demandes');
-        setTimeout(() => setLoading(false), 0);
+        setLoading(false);
       });
   }, [userId]);
 
@@ -40,15 +44,18 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes</h2>
         <p className="text-gray-600 text-sm">Historique de toutes vos demandes de congé</p>
       </div>
-      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
+      
+      <div className="bg-white/70 backdrop-blur-md p-4 sm:p-6 rounded-lg shadow-md border border-white/20">
         {loading && (
           <div className="text-center py-8 text-gray-500">Chargement…</div>
         )}
+        
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
             {error}
           </div>
         )}
+        
         {!loading && demandes.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,32 +64,33 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
             <p>Aucune demande trouvée.</p>
           </div>
         )}
+        
         {!loading && demandes.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Motif</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date début</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date fin</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Statut</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nb jours</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">Motif</th>
                 </tr>
               </thead>
               <tbody className="bg-white/40 divide-y divide-gray-200">
                 {demandes.map((d) => (
                   <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_debut}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{d.date_fin}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.type_name || 'N/A'}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeColor(d.statut)}`}>
-                        {d.statut === 'validee' ? 'Validé' : d.statut === 'refusee' ? 'Refusé' : d.statut === 'en_attente' ? 'En attente' : d.statut}
+                        {d.statut === 'validee' ? 'Validée' : d.statut === 'refusee' ? 'Refusée' : d.statut === 'en_attente' ? 'En attente' : d.statut}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{d.nb_jours} j</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{d.motif || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-bold">{d.nb_jours} j</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-700 hidden md:table-cell">{d.motif || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -95,4 +103,3 @@ function MesDemandes({ userEmail, userRole, userId, onLogout }) {
 }
 
 export default MesDemandes;
-
