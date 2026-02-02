@@ -70,9 +70,14 @@ class PasswordResetController {
             // Masquer le numéro de téléphone (afficher seulement les 4 derniers chiffres)
             $phone = $user['numero_telephone'];
             $phoneLength = strlen($phone);
-            $phoneHint = $phoneLength > 4 
-                ? '***' . substr($phone, -4) 
-                : str_repeat('*', max(0, $phoneLength - 1)) . substr($phone, -1);
+            
+            if ($phoneLength === 0) {
+                $phoneHint = '****';
+            } elseif ($phoneLength <= 4) {
+                $phoneHint = str_repeat('*', $phoneLength);
+            } else {
+                $phoneHint = '***' . substr($phone, -4);
+            }
 
             respondJson([
                 'success' => true,
