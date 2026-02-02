@@ -16,29 +16,60 @@ class RequestController
         $this->notif = new NotificationController();
     }
 
-    public function listRequests(array $query = []): void
-    {
-        $sql = "SELECT d.*, u.nom_complet as requester_name, t.nom as type_name, t.couleur as type_couleur
-                FROM demandes d
-                JOIN utilisateurs u ON u.id = d.utilisateur_id
-                JOIN types_conges t ON t.id = d.type_id
-                WHERE 1=1";
-        $params = [];
-
-        if (!empty($query['user_id'])) {
-            $sql .= " AND d.utilisateur_id = ?";
-            $params[] = (int)$query['user_id'];
+   public function listRequests(array $params = []): void
+{
+    error_log("=== LIST REQUESTS ===");
+    
+    try {
+        // Filtrer par utilisateur si demandé
+        $userId = $params['user_id'] ?? null;
+        
+        $sql = "
+            SELECT 
+                d.id,
+                d.utilisateur_id,
+                u.nom_complet as nom_utilisateur,
+                u.email as email_utilisateur,
+                d.type_id,
+                tc.nom as type_name,
+                u.avatar_url,
+                d.date_debut,
+                d.date_fin,
+                d.nb_jours,
+                d.motif,
+                d.statut,
+                d.date_demande
+            FROM demandes d
+            JOIN utilisateurs u ON u.id = d.utilisateur_id
+            LEFT JOIN types_conges tc ON tc.id = d.type_id
+        ";
+        
+        // Ajouter le filtre si user_id est fourni
+        if ($userId) {
+            $sql .= " WHERE d.utilisateur_id = :user_id";
         }
-        if (!empty($query['status'])) {
-            $sql .= " AND d.statut = ?";
-            $params[] = $query['status'];
-        }
-
-        $sql .= " ORDER BY d.date_demande DESC";
+        
+        // IMPORTANT : Trier par date de demande décroissante (plus récent en premier)
+        $sql .= " ORDER BY d.date_demande DESC, d.id DESC";
+        
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        respondJson($stmt->fetchAll(PDO::FETCH_ASSOC));
+        
+        if ($userId) {
+            $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        }
+        
+        $stmt->execute();
+        $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("Found " . count($demandes) . " requests (sorted by date DESC)");
+        
+        respondJson($demandes);
+        
+    } catch (PDOException $e) {
+        error_log("ERREUR LIST REQUESTS: " . $e->getMessage());
+        respondJson(['error' => 'Erreur lors de la récupération des demandes: ' . $e->getMessage()], 500);
     }
+}
 
     public function getRequest(int $id): void
     {

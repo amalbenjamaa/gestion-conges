@@ -59,6 +59,7 @@ $controllers = [
     'StatsController',
     'RequestController',
     'NotificationController',
+    'ForgotPasswordController',
     'AiController'
 ];
 
@@ -204,6 +205,35 @@ try {
             }
         }
     }
+    // ==================== FORGOT PASSWORD ====================
+$forgot = class_exists('ForgotPasswordController') ? new ForgotPasswordController() : null;
+
+if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - VERIFY EMAIL");
+    if ($forgot) {
+        $forgot->verifyEmail(getJsonInput());
+    } else {
+        respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    }
+}
+
+if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - VERIFY PHONE");
+    if ($forgot) {
+        $forgot->verifyPhone(getJsonInput());
+    } else {
+        respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    }
+}
+
+if ($path === '/api/forgot-password/reset' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - RESET");
+    if ($forgot) {
+        $forgot->resetPassword(getJsonInput());
+    } else {
+        respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    }
+}
 
     // ==================== STATS ====================
     if ($path === '/api/stats' && $method === 'GET') {

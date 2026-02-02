@@ -80,6 +80,16 @@ function Login({ onLogin }) {
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
+          {/* Lien mot de passe oublié */}
+<div className="text-center mt-4">
+  <button
+    type="button"
+    onClick={() => navigate('/mot-de-passe-oublie')}
+    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+  >
+    Mot de passe oublié ?
+  </button>
+</div>
         </form>
       </div>
     </div>

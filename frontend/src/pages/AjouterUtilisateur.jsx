@@ -5,235 +5,333 @@ import Layout from '../components/Layout';
 function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    nom: '',
-    prenom: '',
-    poste: '',
-    date_naissance: '',
+    nom_complet: '',
     email: '',
-    telephone: '',
-    bureau: '',
     password: '',
-    role_id: '1', // 1 = employe, 2 = manager
+    password_confirm: '',
+    telephone: '',
+    role_id: '1',
+    quota_annuel: '25',
+    position: '',
+    departement: '',
+    bureau: ''
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [credentials, setCredentials] = useState(null);
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.nom || !formData.prenom || !formData.email || !formData.password) {
-      setError('Nom, prénom, email et mot de passe sont obligatoires');
+    setError('');
+    setSuccess('');
+
+    // Validation côté client
+    if (!formData.nom_complet || !formData.email || !formData.password) {
+      setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-    setIsLoading(true);
-    setError('');
-    setSuccess(false);
+
+    // Vérifier la longueur du mot de passe
+    if (formData.password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    // Vérifier que les mots de passe correspondent
+    if (formData.password !== formData.password_confirm) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    // Vérifier le format de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Format d\'email invalide');
+      return;
+    }
+
+    setLoading(true);
 
     try {
-      const nomComplet = `${formData.prenom} ${formData.nom}`.trim();
+      const dataToSend = { ...formData };
+      delete dataToSend.password_confirm; // Ne pas envoyer la confirmation
 
       const res = await fetch('http://localhost:8000/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          nom_complet: nomComplet,
-          email: formData.email,
-          // support 'pwd' côté backend, mais on envoie 'password'
-          password: formData.password,
-          telephone: formData.telephone || null,
-          bureau: formData.bureau || null,
-          role_id: Number(formData.role_id),
-          position: formData.poste || null,
-          date_naissance: formData.date_naissance || null,
-          solde_total: 25,
-          solde_consomme: 0
-        })
+        body: JSON.stringify(dataToSend)
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Erreur lors de la création');
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccess('Utilisateur créé avec succès !');
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
+      } else {
+        setError(data.error || 'Erreur lors de la création');
       }
-
-      await res.json();
-      setSuccess(true);
-      
-      setCredentials({
-        email: formData.email,
-        password: formData.password,
-        roleName: formData.role_id === '1' ? 'Employé' : 'Manager'
-      });
-      
-      // Rafraîchir le dashboard en déclenchant un événement
-      window.dispatchEvent(new CustomEvent('userCreated'));
-      
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 500);
     } catch (err) {
-      setError(err.message || 'Erreur lors de la création de l\'utilisateur');
+      setError('Erreur de connexion au serveur');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Ajouter un Utilisateur</h2>
-          <p className="text-gray-600 text-sm">Créez un nouvel employé ou manager</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Ajouter un utilisateur</h1>
+          <p className="text-gray-600">Créer un nouveau compte employé ou manager</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Nom *</label>
-                <input
-                  type="text"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Prénom *</label>
-                <input
-                  type="text"
-                  value={formData.prenom}
-                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                  required
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Téléphone</label>
-                <input
-                  type="tel"
-                  value={formData.telephone}
-                  onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
-                  placeholder="+213 ..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Bureau</label>
-                <input
-                  type="text"
-                  value={formData.bureau}
-                  onChange={(e) => setFormData({ ...formData, bureau: e.target.value })}
-                  placeholder="Ex: 3ème étage, B-12"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                />
-              </div>
+        {error && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-red-700 font-medium">{error}</p>
             </div>
+          </div>
+        )}
 
+        {success && (
+          <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-green-700 font-medium">{success}</p>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl p-8 border border-white/20">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Nom complet */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Poste</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Nom complet <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
-                value={formData.poste}
-                onChange={(e) => setFormData({ ...formData, poste: e.target.value })}
-                placeholder="Ex: Développeur, Manager RH, Chef de Projet..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                name="nom_complet"
+                value={formData.nom_complet}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Ex: Jean Dupont"
+                required
               />
             </div>
 
+            {/* Email */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Date de naissance</label>
-              <input
-                type="date"
-                value={formData.date_naissance}
-                onChange={(e) => setFormData({ ...formData, date_naissance: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
               <input
                 type="email"
+                name="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="exemple: jean.dupont@entreprise.com"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="jean.dupont@exemple.com"
                 required
               />
             </div>
 
+            {/* Téléphone */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Mot de passe *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Téléphone <span className="text-red-500">*</span>
+              </label>
               <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                type="tel"
+                name="telephone"
+                value={formData.telephone}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="+33 6 12 34 56 78"
                 required
-                minLength={6}
               />
             </div>
 
+            {/* Rôle */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Rôle *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Rôle <span className="text-red-500">*</span>
+              </label>
               <select
+                name="role_id"
                 value={formData.role_id}
-                onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                required
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="1">Employé</option>
                 <option value="2">Manager</option>
               </select>
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="space-y-3">
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-                  ✓ Utilisateur créé avec succès ! Redirection en cours...
-                </div>
-                {credentials && (
-                  <div className="bg-white border border-gray-200 px-4 py-3 rounded-lg text-sm shadow-sm">
-                    <p className="font-semibold text-gray-800 mb-2">Coordonnées de connexion</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-gray-700">
-                      <div><span className="text-gray-500">Email:</span> {credentials.email}</div>
-                      <div><span className="text-gray-500">Mot de passe:</span> {credentials.password}</div>
-                      <div><span className="text-gray-500">Rôle:</span> {credentials.roleName}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex-1"
-              >
-                {isLoading ? 'Création en cours...' : 'Créer l\'utilisateur'}
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
-              >
-                Annuler
-              </button>
+            {/* Mot de passe */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Mot de passe <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Minimum 6 caractères"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Au moins 6 caractères</p>
             </div>
-          </form>
-        </div>
+
+            {/* Confirmation mot de passe */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Confirmer le mot de passe <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                name="password_confirm"
+                value={formData.password_confirm}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                  formData.password && formData.password_confirm && formData.password !== formData.password_confirm
+                    ? 'border-red-500'
+                    : 'border-gray-300'
+                }`}
+                placeholder="Retapez le mot de passe"
+                required
+              />
+              {formData.password && formData.password_confirm && formData.password !== formData.password_confirm && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Les mots de passe ne correspondent pas
+                </p>
+              )}
+              {formData.password && formData.password_confirm && formData.password === formData.password_confirm && (
+                <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Les mots de passe correspondent
+                </p>
+              )}
+            </div>
+
+            {/* Position */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Fonction
+              </label>
+              <input
+                type="text"
+                name="position"
+                value={formData.position}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Ex: Développeur, Comptable..."
+              />
+            </div>
+
+            {/* Département */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Département
+              </label>
+              <input
+                type="text"
+                name="departement"
+                value={formData.departement}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Ex: IT, RH, Finance..."
+              />
+            </div>
+
+            {/* Bureau */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Bureau
+              </label>
+              <input
+                type="text"
+                name="bureau"
+                value={formData.bureau}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Ex: Bureau 205, Paris..."
+              />
+            </div>
+
+            {/* Quota annuel */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Quota annuel (jours)
+              </label>
+              <input
+                type="number"
+                name="quota_annuel"
+                value={formData.quota_annuel}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                min="0"
+                max="50"
+              />
+            </div>
+          </div>
+
+          {/* Boutons */}
+          <div className="flex items-center gap-4 mt-8">
+            <button
+              type="submit"
+              disabled={loading || (formData.password && formData.password_confirm && formData.password !== formData.password_confirm)}
+              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Création en cours...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Créer l'utilisateur
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+            >
+              Annuler
+            </button>
+          </div>
+        </form>
       </div>
     </Layout>
   );

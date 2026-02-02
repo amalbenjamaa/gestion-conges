@@ -11,6 +11,7 @@ import EmployeDetails from './pages/EmployeDetails';
 import GestionProfils from './pages/GestionProfils';
 import Profil from './pages/Profil';
 import AjouterUtilisateur from './pages/AjouterUtilisateur';
+import MotDePasseOublie from './pages/MotDePasseOublie';
 
 function App() {
   const [userEmail, setUserEmail] = useState(sessionStorage.getItem('userEmail') || null);
@@ -57,6 +58,7 @@ function App() {
             )
           }
         />
+        <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
         <Route
           path="/dashboard"
           element={
