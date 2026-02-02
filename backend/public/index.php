@@ -60,6 +60,7 @@ $controllers = [
     'RequestController',
     'NotificationController',
     'ForgotPasswordController',
+    'PasswordResetController',
     'AiController'
 ];
 
@@ -232,6 +233,36 @@ if ($path === '/api/forgot-password/reset' && $method === 'POST') {
         $forgot->resetPassword(getJsonInput());
     } else {
         respondJson(['error' => 'ForgotPasswordController non disponible'], 500);
+    }
+}
+
+    // ==================== PASSWORD RESET WITH CODE ====================
+$passwordReset = class_exists('PasswordResetController') ? new PasswordResetController() : null;
+
+if ($path === '/api/password-reset/request' && $method === 'POST') {
+    error_log("→ Route: PASSWORD RESET - REQUEST CODE");
+    if ($passwordReset) {
+        $passwordReset->requestReset(getJsonInput());
+    } else {
+        respondJson(['error' => 'PasswordResetController non disponible'], 500);
+    }
+}
+
+if ($path === '/api/password-reset/verify-phone' && $method === 'POST') {
+    error_log("→ Route: PASSWORD RESET - VERIFY PHONE AND CODE");
+    if ($passwordReset) {
+        $passwordReset->verifyPhone(getJsonInput());
+    } else {
+        respondJson(['error' => 'PasswordResetController non disponible'], 500);
+    }
+}
+
+if ($path === '/api/password-reset/reset' && $method === 'POST') {
+    error_log("→ Route: PASSWORD RESET - RESET PASSWORD");
+    if ($passwordReset) {
+        $passwordReset->resetPassword(getJsonInput());
+    } else {
+        respondJson(['error' => 'PasswordResetController non disponible'], 500);
     }
 }
 

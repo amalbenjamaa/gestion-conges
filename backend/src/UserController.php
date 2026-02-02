@@ -12,6 +12,7 @@ class UserController {
         $role_id = $data['role_id'] ?? 1;
         $solde_total = $data['solde_total'] ?? 30;
         $plainPassword = $data['password'] ?? ($data['mot_de_passe'] ?? null);
+        $numero_telephone = $data['telephone'] ?? ($data['numero_telephone'] ?? null);
 
         if (!$nom_complet || !$email) {
             respondJson(['error' => 'Nom et email requis'], 400);
@@ -36,11 +37,11 @@ class UserController {
 
         // Insérer l'utilisateur
         $stmt = $this->pdo->prepare("
-            INSERT INTO utilisateurs (nom_complet, email, role_id, solde_total, solde_consomme, mot_de_passe, avatar_url) 
-            VALUES (?, ?, ?, ?, 0, ?, ?)
+            INSERT INTO utilisateurs (nom_complet, email, numero_telephone, role_id, solde_total, solde_consomme, mot_de_passe, avatar_url) 
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?)
         ");
         
-        if ($stmt->execute([$nom_complet, $email, $role_id, $solde_total, $hashedPassword, $avatar_url])) {
+        if ($stmt->execute([$nom_complet, $email, $numero_telephone, $role_id, $solde_total, $hashedPassword, $avatar_url])) {
             respondJson([
                 'ok' => true,
                 'message' => 'Utilisateur créé avec succès',
@@ -53,7 +54,7 @@ class UserController {
 
     public function getAllUsers() {
         $stmt = $this->pdo->query("
-            SELECT id, nom_complet, email, role_id, solde_total, solde_consomme, avatar_url 
+            SELECT id, nom_complet, email, numero_telephone, role_id, solde_total, solde_consomme, avatar_url 
             FROM utilisateurs 
             ORDER BY nom_complet
         ");
