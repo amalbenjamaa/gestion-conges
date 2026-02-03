@@ -119,21 +119,7 @@ function App() {
             )
           }
         />
-        <Route
-          path="/mes-demandes"
-          element={
-            userEmail ? (
-              <MesDemandes
-                userEmail={userEmail}
-                userRole={userRole}
-                userId={userId}
-                onLogout={handleLogout}
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+        
         <Route
           path="/profil"
           element={

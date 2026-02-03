@@ -49,7 +49,7 @@ function Calendrier({ userEmail, userRole, onLogout }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState('month');
+  const [view, setView] = useState('month'); // 'month' | 'week' | 'day' | 'year'
 
   const loadEvents = (startDate, endDate) => {
     setLoading(true);
@@ -65,7 +65,7 @@ function Calendrier({ userEmail, userRole, onLogout }) {
           id: event.id,
           title: `${event.title} - ${event.type}`,
           start: new Date(event.start),
-          end: new Date(moment(event.end).add(1, 'day').format('YYYY-MM-DD')),
+          end: new Date(moment(event.end).add(1, 'day').format('YYYY-MM-DD')), // Ajouter 1 jour car end est inclusif
           resource: {
             type: event.type,
             color: event.color || '#3b82f6',
@@ -88,6 +88,7 @@ function Calendrier({ userEmail, userRole, onLogout }) {
     if (v === 'day') {
       return { start: m.clone().startOf('day').toDate(), end: m.clone().endOf('day').toDate() };
     }
+    // default month
     return { start: m.clone().startOf('month').toDate(), end: m.clone().endOf('month').toDate() };
   };
 
@@ -125,54 +126,47 @@ function Calendrier({ userEmail, userRole, onLogout }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Calendrier d'Équipe</h2>
         <p className="text-gray-600 text-sm">Visualisez les absences et congés de tous les collaborateurs</p>
       </div>
-      <div className="bg-white/70 backdrop-blur-md p-3 sm:p-6 rounded-lg shadow-md border border-white/20">
+      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
         {loading ? (
           <div className="text-center py-8 text-gray-500">Chargement du calendrier...</div>
         ) : (
           <>
-            {/* ✅ Contrôles responsive */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2 mb-4">
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  className="px-3 py-1.5 rounded border text-sm hover:bg-gray-100"
-                  onClick={() => {
-                    const d = view === 'year' ? moment(currentDate).add(-1, 'year').toDate() : moment(currentDate).add(-1, view === 'week' ? 'week' : 'month').toDate();
-                    setCurrentDate(d);
-                  }}
-                >
-                  Précédent
-                </button>
-                <button
-                  className="px-3 py-1.5 rounded border text-sm hover:bg-gray-100"
-                  onClick={() => setCurrentDate(new Date())}
-                >
-                  Aujourd'hui
-                </button>
-                <button
-                  className="px-3 py-1.5 rounded border text-sm hover:bg-gray-100"
-                  onClick={() => {
-                    const d = view === 'year' ? moment(currentDate).add(1, 'year').toDate() : moment(currentDate).add(1, view === 'week' ? 'week' : 'month').toDate();
-                    setCurrentDate(d);
-                  }}
-                >
-                  Suivant
-                </button>
-              </div>
-              
-              {/* ✅ Boutons de vue responsive */}
-              <div className="flex gap-2 sm:ml-auto flex-wrap">
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                className="px-3 py-1.5 rounded border text-sm hover:bg-gray-100"
+                onClick={() => {
+                  const d = view === 'year' ? moment(currentDate).add(-1, 'year').toDate() : moment(currentDate).add(-1, view === 'week' ? 'week' : 'month').toDate();
+                  setCurrentDate(d);
+                }}
+              >
+                Précédent
+              </button>
+              <button
+                className="px-3 py-1.5 rounded border text-sm hover:bg-gray-100"
+                onClick={() => setCurrentDate(new Date())}
+              >
+                Aujourd'hui
+              </button>
+              <button
+                className="px-3 py-1.5 rounded border text-sm hover:bg-gray-100"
+                onClick={() => {
+                  const d = view === 'year' ? moment(currentDate).add(1, 'year').toDate() : moment(currentDate).add(1, view === 'week' ? 'week' : 'month').toDate();
+                  setCurrentDate(d);
+                }}
+              >
+                Suivant
+              </button>
+              <div className="ml-auto flex items-center gap-2">
                 <button className={`px-3 py-1.5 rounded border text-sm ${view === 'month' ? 'bg-blue-600 text-white' : ''}`} onClick={() => setView('month')}>Mois</button>
                 <button className={`px-3 py-1.5 rounded border text-sm ${view === 'week' ? 'bg-blue-600 text-white' : ''}`} onClick={() => setView('week')}>Semaine</button>
-                <button className={`hidden sm:inline-block px-3 py-1.5 rounded border text-sm ${view === 'day' ? 'bg-blue-600 text-white' : ''}`} onClick={() => setView('day')}>Jour</button>
+                <button className={`px-3 py-1.5 rounded border text-sm ${view === 'day' ? 'bg-blue-600 text-white' : ''}`} onClick={() => setView('day')}>Jour</button>
                 <button className={`px-3 py-1.5 rounded border text-sm ${view === 'year' ? 'bg-blue-600 text-white' : ''}`} onClick={() => setView('year')}>Année</button>
               </div>
             </div>
-            
             {view === 'year' ? (
               <YearGrid date={currentDate} events={events} />
             ) : (
-              /* ✅ Calendrier responsive avec hauteur adaptative */
-              <div className="h-[400px] sm:h-[500px] lg:h-[600px] overflow-auto">
+              <div style={{ height: '600px' }}>
                 <Calendar
                   localizer={localizer}
                   events={events}
