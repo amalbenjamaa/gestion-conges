@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logoMonconge from './assets/monconge-logo.png'; // ✅ AJOUTER CETTE LIGNE
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ function Login({ onLogin }) {
     try {
       const res = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
-        credentials: 'include', // <-- important : envoie le cookie de session
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -43,14 +44,20 @@ function Login({ onLogin }) {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="text-center mb-8">
-  <img 
-  src="http://localhost:5173/monconge-logo.png" 
-  alt="Moncongé" 
-  className="h-10 w-auto object-contain"
-  onError={(e) => console.log("Erreur de chargement du logo:", e)}
-/>
- 
-</div>
+          {/* ✅ Logo avec import */}
+          <img 
+            src={logoMonconge} 
+            alt="Moncongé" 
+            className="h-16 w-auto mx-auto mb-6 object-contain"
+            onError={(e) => {
+              console.error("Erreur chargement logo:", e);
+              e.target.style.display = 'none';
+            }}
+          />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Connexion</h2>
+          
+        </div>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -63,6 +70,7 @@ function Login({ onLogin }) {
               autoFocus
             />
           </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
             <input
@@ -73,28 +81,20 @@ function Login({ onLogin }) {
               className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             />
           </div>
+          
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
+          
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg"
+            className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
-          {/* Lien mot de passe oublié */}
-<div className="text-center mt-4">
-  <button
-    type="button"
-    onClick={() => navigate('/mot-de-passe-oublie')}
-    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-  >
-    Mot de passe oublié ?
-  </button>
-</div>
         </form>
       </div>
     </div>

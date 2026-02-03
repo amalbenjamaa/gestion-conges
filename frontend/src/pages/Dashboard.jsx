@@ -271,7 +271,7 @@ useEffect(() => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-gray-900 text-lg">
-                        {demande.nom_utilisateur || 'Utilisateur inconnu'}
+                        {demande.requester_name || demande.nom_utilisateur || demande.email_utilisateur || 'Utilisateur inconnu'}
                       </p>
                       {isNew && (
                         <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">

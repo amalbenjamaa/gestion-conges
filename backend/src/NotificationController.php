@@ -12,74 +12,158 @@ class NotificationController
         $this->pdo = Database::getPdo();
     }
 
-    private function ensureTable(): void
+    /**
+     * Créer une notification
+     */
+    public function create(int $userId, string $titre, string $message, string $type = 'info'): bool
     {
-        $this->pdo->exec("
-            CREATE TABLE IF NOT EXISTS notifications (
-              id INT AUTO_INCREMENT PRIMARY KEY,
-              utilisateur_id INT NOT NULL,
-              message VARCHAR(500) NOT NULL,
-              est_lu TINYINT(1) NOT NULL DEFAULT 0,
-              cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              INDEX (utilisateur_id),
-              INDEX (est_lu),
-              CONSTRAINT fk_notifications_user FOREIGN KEY (utilisateur_id)
-                REFERENCES utilisateurs(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ");
         try {
-            $cols = $this->pdo->query("SHOW COLUMNS FROM notifications LIKE 'demande_id'")->fetchAll(PDO::FETCH_ASSOC);
-            if (!$cols || count($cols) === 0) {
-                $this->pdo->exec("ALTER TABLE notifications ADD COLUMN demande_id INT NULL");
-                $this->pdo->exec("ALTER TABLE notifications ADD INDEX idx_notif_demande_id (demande_id)");
-            }
-        } catch (Throwable $e) {}
+            $sql = "INSERT INTO notifications (utilisateur_id, titre, message, type, lu, date_creation) 
+                    VALUES (:user_id, :titre, :message, :type, 0, NOW())";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'user_id' => $userId,
+                'titre' => $titre,
+                'message' => $message,
+                'type' => $type
+            ]);
+            
+            error_log("✅ Notification créée pour user $userId: $titre");
+            return true;
+        } catch (PDOException $e) {
+            error_log("❌ Erreur création notification: " . $e->getMessage());
+            return false;
+        }
     }
 
+    /**
+     * Lister mes notifications
+     */
     public function listMine(): void
     {
-        $this->ensureTable();
-        $userId = getCurrentUserId();
+        try {
+            $user = getAuthenticatedUser();
+            if (!$user) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
 
-        $stmt = $this->pdo->prepare("
-            SELECT id, message, est_lu, cree_le, demande_id
-            FROM notifications
-            WHERE utilisateur_id = ?
-            ORDER BY id DESC
-            LIMIT 50
-        ");
-        $stmt->execute([$userId]);
-        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $sql = "
+                SELECT 
+                    id, 
+                    titre, 
+                    message, 
+                    type, 
+                    lu, 
+                    date_creation,
+                    DATE_FORMAT(date_creation, '%d/%m/%Y à %H:%i') as date_formatted
+                FROM notifications
+                WHERE utilisateur_id = :user_id
+                ORDER BY date_creation DESC
+                LIMIT 50
+            ";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['user_id' => $user['id']]);
+            $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $unread = 0;
-        foreach ($items as $n) {
-            if ((int)$n['est_lu'] === 0) $unread++;
+            // Compter les non lues
+            $sql = "SELECT COUNT(*) FROM notifications WHERE utilisateur_id = :user_id AND lu = 0";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['user_id' => $user['id']]);
+            $unreadCount = (int)$stmt->fetchColumn();
+
+            respondJson([
+                'notifications' => $notifications,
+                'unread_count' => $unreadCount
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("❌ Erreur listMine: " . $e->getMessage());
+            respondJson(['error' => 'Erreur serveur'], 500);
         }
-
-        respondJson([
-            'unread' => $unread,
-            'items' => $items,
-        ]);
     }
 
+    /**
+     * Marquer comme lue
+     */
+    public function markAsRead(int $notificationId): void
+    {
+        try {
+            $user = getAuthenticatedUser();
+            if (!$user) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
+
+            $sql = "UPDATE notifications SET lu = 1 WHERE id = :id AND utilisateur_id = :user_id";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'id' => $notificationId,
+                'user_id' => $user['id']
+            ]);
+
+            respondJson(['success' => true]);
+            
+        } catch (PDOException $e) {
+            error_log("❌ Erreur markAsRead: " . $e->getMessage());
+            respondJson(['error' => 'Erreur serveur'], 500);
+        }
+    }
+
+    /**
+     * Marquer toutes comme lues
+     */
     public function markAllRead(): void
     {
-        $this->ensureTable();
-        $userId = getCurrentUserId();
+        try {
+            $user = getAuthenticatedUser();
+            if (!$user) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
 
-        $stmt = $this->pdo->prepare("UPDATE notifications SET est_lu = 1 WHERE utilisateur_id = ?");
-        $stmt->execute([$userId]);
-        respondJson(['ok' => true]);
+            $sql = "UPDATE notifications SET lu = 1 WHERE utilisateur_id = :user_id AND lu = 0";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['user_id' => $user['id']]);
+
+            $count = $stmt->rowCount();
+            
+            respondJson([
+                'success' => true,
+                'marked' => $count
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("❌ Erreur markAllRead: " . $e->getMessage());
+            respondJson(['error' => 'Erreur serveur'], 500);
+        }
     }
 
-    public function createForUser(int $userId, string $message, ?int $demandeId = null): void
+    /**
+     * Supprimer une notification
+     */
+    public function delete(int $notificationId): void
     {
-        $this->ensureTable();
-        $stmt = $this->pdo->prepare("INSERT INTO notifications (utilisateur_id, message, est_lu, demande_id) VALUES (?, ?, 0, ?)");
-        $stmt->execute([$userId, $message, $demandeId]);
+        try {
+            $user = getAuthenticatedUser();
+            if (!$user) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
+
+            $sql = "DELETE FROM notifications WHERE id = :id AND utilisateur_id = :user_id";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'id' => $notificationId,
+                'user_id' => $user['id']
+            ]);
+
+            respondJson(['success' => true]);
+            
+        } catch (PDOException $e) {
+            error_log("❌ Erreur delete: " . $e->getMessage());
+            respondJson(['error' => 'Erreur serveur'], 500);
+        }
     }
 }
-
-
-
-

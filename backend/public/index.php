@@ -2,6 +2,11 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Sessions
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 header('Content-Type: application/json; charset=utf-8');
 
 $allowedOrigins = ['http://localhost:5173', 'http://localhost:4173'];
@@ -26,25 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../src/Database.php';
 
 // Charger Helpers
-if (file_exists(__DIR__ . '/../src/Helpers.php')) {
-    require_once __DIR__ . '/../src/Helpers.php';
-}
-
-// Fonctions utilitaires
-if (!function_exists('respondJson')) {
-    function respondJson($data, $status = 200) {
-        http_response_code($status);
-        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        exit;
-    }
-}
-
-if (!function_exists('getJsonInput')) {
-    function getJsonInput() {
-        $input = file_get_contents('php://input');
-        return json_decode($input, true) ?: [];
-    }
-}
+require_once __DIR__ . '/../src/Helpers.php';
 
 // Charger les contrôleurs
 $controllers = [
@@ -71,7 +58,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 error_log("========================================");
 error_log("REQUEST: $method $path");
-error_log("Query params: " . print_r($_GET, true));
 
 try {
     // Initialiser les contrôleurs
@@ -112,7 +98,7 @@ try {
     }
 
     if (preg_match('#^/api/users/(\d+)$#', $path, $matches)) {
-        $userId = $matches[1];
+        $userId = (int)$matches[1];
         
         if ($method === 'GET') {
             $user && method_exists($user, 'getUserById') && $user->getUserById($userId);
@@ -154,7 +140,12 @@ try {
 
     // ==================== STATS ====================
     if ($path === '/api/stats' && $method === 'GET') {
-        $stats && $stats->getStats();
+        error_log("→ Route: STATS");
+        if ($stats && method_exists($stats, 'getStats')) {
+            $stats->getStats();
+        } else {
+            respondJson(['error' => 'StatsController non disponible'], 500);
+        }
     }
 
     // ==================== DEMANDES ====================
@@ -167,7 +158,7 @@ try {
     }
 
     if (preg_match('#^/api/demandes/(\d+)$#', $path, $matches)) {
-        $demandeId = $matches[1];
+        $demandeId = (int)$matches[1];
         
         if ($method === 'GET') {
             $demande && method_exists($demande, 'getDemandeById') && $demande->getDemandeById($demandeId);
@@ -216,11 +207,37 @@ try {
 
     // ==================== NOTIFICATIONS ====================
     if ($path === '/api/notifications' && $method === 'GET') {
-        $notification && method_exists($notification, 'listMine') && $notification->listMine();
+        if ($notification && method_exists($notification, 'listMine')) {
+            $notification->listMine();
+        } else {
+            respondJson(['notifications' => [], 'unread_count' => 0]);
+        }
     }
 
     if ($path === '/api/notifications/mark-read' && $method === 'POST') {
-        $notification && method_exists($notification, 'markAllRead') && $notification->markAllRead();
+        if ($notification && method_exists($notification, 'markAllRead')) {
+            $notification->markAllRead();
+        } else {
+            respondJson(['success' => true]);
+        }
+    }
+
+    if (preg_match('#^/api/notifications/(\d+)$#', $path, $matches) && $method === 'DELETE') {
+        $notifId = (int)$matches[1];
+        if ($notification && method_exists($notification, 'delete')) {
+            $notification->delete($notifId);
+        } else {
+            respondJson(['success' => true]);
+        }
+    }
+
+    if (preg_match('#^/api/notifications/(\d+)/read$#', $path, $matches) && $method === 'PATCH') {
+        $notifId = (int)$matches[1];
+        if ($notification && method_exists($notification, 'markAsRead')) {
+            $notification->markAsRead($notifId);
+        } else {
+            respondJson(['success' => true]);
+        }
     }
 
     // ==================== AI ====================
@@ -234,5 +251,6 @@ try {
 
 } catch (Exception $e) {
     error_log("✗ EXCEPTION: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     respondJson(['error' => $e->getMessage()], 500);
 }

@@ -1,126 +1,136 @@
 <?php
 
 require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/Helpers.php';
 
-class StatsController {
+class StatsController
+{
     private PDO $pdo;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->pdo = Database::getPdo();
     }
 
-    public function getStats(): void {
-        error_log("=== GET STATS ===");
-        
+    public function getStats(): void
+    {
         try {
-            // Total employés (seulement ceux avec role_id = 1)
-            $stmt = $this->pdo->query("
-                SELECT COUNT(*) as cnt 
-                FROM utilisateurs u
-                JOIN roles r ON r.id = u.role_id
-                WHERE r.nom = 'employe'
-            ");
-            $totalEmployes = (int)$stmt->fetch()['cnt'];
-
-            // Présents aujourd'hui (employés sans congé validé aujourd'hui)
-            $stmt = $this->pdo->query("
-                SELECT COUNT(DISTINCT u.id) as cnt
-                FROM utilisateurs u
-                JOIN roles r ON r.id = u.role_id
-                LEFT JOIN demandes d ON d.utilisateur_id = u.id 
-                    AND d.statut = 'validee'
-                    AND CURDATE() BETWEEN d.date_debut AND d.date_fin
-                WHERE r.nom = 'employe' AND d.id IS NULL
-            ");
-            $presentAujourdhui = (int)$stmt->fetch()['cnt'];
+            error_log("=== STATS CONTROLLER - getStats ===");
+            
+            // Total employés
+            $sql = "SELECT COUNT(*) FROM utilisateurs u JOIN roles r ON r.id = u.role_id WHERE r.nom = 'employe'";
+            $totalEmployes = (int)$this->pdo->query($sql)->fetchColumn();
 
             // En congé aujourd'hui
-            $stmt = $this->pdo->query("
-                SELECT COUNT(DISTINCT u.id) as cnt
-                FROM utilisateurs u
-                JOIN roles r ON r.id = u.role_id
-                JOIN demandes d ON d.utilisateur_id = u.id
-                WHERE r.nom = 'employe'
-                AND d.statut = 'validee'
-                AND CURDATE() BETWEEN d.date_debut AND d.date_fin
-            ");
-            $enConge = (int)$stmt->fetch()['cnt'];
+            $sql = "SELECT COUNT(DISTINCT d.utilisateur_id) FROM demandes d WHERE d.statut = 'validee' AND CURDATE() BETWEEN d.date_debut AND d.date_fin";
+            $enConge = (int)$this->pdo->query($sql)->fetchColumn();
 
+            $presentAujourdhui = $totalEmployes - $enConge;
+            
             // Demandes en attente
-            $stmt = $this->pdo->query("
-                SELECT COUNT(*) as cnt
-                FROM demandes
-                WHERE statut = 'en_attente'
-            ");
-            $demandesEnAttente = (int)$stmt->fetch()['cnt'];
+            $sql = "SELECT COUNT(*) FROM demandes WHERE statut = 'en_attente'";
+            $demandesEnAttente = (int)$this->pdo->query($sql)->fetchColumn();
 
             // Demandes validées
-            $stmt = $this->pdo->query("
-                SELECT COUNT(*) as cnt
-                FROM demandes
-                WHERE statut = 'validee'
-            ");
-            $demandesValidees = (int)$stmt->fetch()['cnt'];
+            $sql = "SELECT COUNT(*) FROM demandes WHERE statut = 'validee'";
+            $demandesValidees = (int)$this->pdo->query($sql)->fetchColumn();
 
             // Demandes refusées
-            $stmt = $this->pdo->query("
-                SELECT COUNT(*) as cnt
-                FROM demandes
-                WHERE statut = 'refusee'
-            ");
-            $demandesRefusees = (int)$stmt->fetch()['cnt'];
+            $sql = "SELECT COUNT(*) FROM demandes WHERE statut = 'refusee'";
+            $demandesRefusees = (int)$this->pdo->query($sql)->fetchColumn();
 
             // Par statut
-            $stmt = $this->pdo->query("
-                SELECT statut, COUNT(*) as cnt 
-                FROM demandes 
-                GROUP BY statut
-            ");
-            $byStatus = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $sql = "SELECT statut, COUNT(*) as cnt FROM demandes GROUP BY statut";
+            $byStatus = $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
-            // Par type
-            $stmt = $this->pdo->query("
+            // Répartition par type
+            $sql = "
                 SELECT 
-                    COALESCE(tc.nom, 'Autre') as type, 
-                    COUNT(*) as cnt,
-                    COUNT(*) as count
-                FROM demandes d
-                LEFT JOIN types_conges tc ON d.type_id = tc.id
-                GROUP BY d.type_id, tc.nom
-                ORDER BY cnt DESC
-            ");
-            $byType = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    t.nom as type, 
+                    COUNT(*) as cnt, 
+                    COUNT(*) as count,
+                    SUM(d.nb_jours) as total_jours
+                FROM demandes d 
+                JOIN types_conges t ON t.id = d.type_id 
+                WHERE d.statut = 'validee' 
+                GROUP BY t.nom
+            ";
+            $byType = $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
-            // Évolution mensuelle (12 derniers mois)
-           // Évolution mensuelle (TOUS les mois où il y a des demandes)
-$stmt = $this->pdo->query("
-    SELECT 
-        DATE_FORMAT(date_demande, '%Y-%m') as month,
-        DATE_FORMAT(date_demande, '%Y-%m') as mois,
-        COUNT(*) as cnt,
-        COUNT(*) as count,
-        SUM(nb_jours) as total_jours
-    FROM demandes 
-    GROUP BY month 
-    ORDER BY month ASC
-");
-$perMonth = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // ✅ ÉVOLUTION MENSUELLE - Récupérer toutes les données
+            $sql = "
+                SELECT 
+                    DATE_FORMAT(d.date_debut, '%Y-%m') as month,
+                    COUNT(*) as cnt,
+                    SUM(d.nb_jours) as total_jours
+                FROM demandes d
+                WHERE d.statut = 'validee'
+                GROUP BY DATE_FORMAT(d.date_debut, '%Y-%m')
+            ";
+            $existingData = $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("📊 Données BRUTES de la BDD:");
+            foreach ($existingData as $row) {
+                error_log("  - Mois: {$row['month']}, Congés: {$row['cnt']}, Jours: {$row['total_jours']}");
+            }
+            
+            // Créer un tableau associatif [mois => données]
+            $dataByMonth = [];
+            foreach ($existingData as $row) {
+                $dataByMonth[$row['month']] = [
+                    'cnt' => (int)$row['cnt'],
+                    'count' => (int)$row['cnt'],
+                    'total_jours' => (int)$row['total_jours']
+                ];
+            }
+            
+            // ✅✅✅ JANVIER → DÉCEMBRE DE L'ANNÉE EN COURS ✅✅✅
+            $perMonth = [];
+            $moisFr = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            
+            // Récupérer l'année en cours
+            $currentYear = date('Y');
+            
+            // Générer les 12 mois de janvier à décembre
+            for ($monthNum = 1; $monthNum <= 12; $monthNum++) {
+                $month = sprintf('%s-%02d', $currentYear, $monthNum);
+                
+                $perMonth[] = [
+                    'month' => $month,
+                    'mois' => $month,
+                    'month_label' => $moisFr[$monthNum - 1] . ' ' . $currentYear,
+                    'cnt' => isset($dataByMonth[$month]) ? $dataByMonth[$month]['cnt'] : 0,
+                    'count' => isset($dataByMonth[$month]) ? $dataByMonth[$month]['count'] : 0,
+                    'total_jours' => isset($dataByMonth[$month]) ? (int)$dataByMonth[$month]['total_jours'] : 0
+                ];
+            }
+
+            error_log("✅ Mois générés: " . count($perMonth));
+            error_log("Ordre: {$perMonth[0]['month_label']} → {$perMonth[11]['month_label']}");
+            error_log("Détails complets:");
+            foreach ($perMonth as $m) {
+                error_log("  - {$m['month_label']}: {$m['count']} congés, {$m['total_jours']} jours");
+            }
+
             respondJson([
                 'totalEmployes' => $totalEmployes,
                 'presentAujourdhui' => $presentAujourdhui,
                 'enConge' => $enConge,
+                'conges_en_cours' => $enConge,
+                'conges_en_attente' => $demandesEnAttente,
                 'demandesEnAttente' => $demandesEnAttente,
                 'demandesValidees' => $demandesValidees,
                 'demandesRefusees' => $demandesRefusees,
                 'totalUsers' => $totalEmployes,
+                'taux_absence' => $totalEmployes > 0 ? round(($enConge / $totalEmployes) * 100, 1) : 0,
                 'byStatus' => $byStatus,
                 'byType' => $byType,
                 'perMonth' => $perMonth
             ]);
             
         } catch (PDOException $e) {
-            error_log("ERREUR STATS: " . $e->getMessage());
-            respondJson(['error' => 'Erreur lors de la récupération des stats: ' . $e->getMessage()], 500);
+            error_log("❌ ERREUR STATS: " . $e->getMessage());
+            respondJson(['error' => 'Erreur stats: ' . $e->getMessage()], 500);
         }
     }
 }

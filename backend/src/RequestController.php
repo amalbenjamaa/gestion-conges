@@ -198,81 +198,65 @@ class RequestController
         respondJson(['ok' => true, 'id' => $id], 201);
     }
 
-    public function updateStatus(int $id, string $status, ?string $comment = null): void
-    {
-        $handled_by = getCurrentUserId();
-        if (!$handled_by) {
-            respondJson(['error' => 'Authentification requise'], 401);
-    }
+    public function updateStatus(int $requestId, string $newStatus, ?string $handleComment = null): void
+{
+    try {
+        $user = getAuthenticatedUser();
+        if (!$user) {
+            respondJson(['error' => 'Non authentifié'], 401);
+            return;
+        }
 
-        // Vérifier que l'utilisateur est manager
-        $stmt = $this->pdo->prepare("
-            SELECT r.nom as role 
-            FROM utilisateurs u 
-            JOIN roles r ON r.id = u.role_id 
-            WHERE u.id = ?
-        ");
-        $stmt->execute([$handled_by]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$user || $user['role'] !== 'manager') {
-            respondJson(['error' => 'Accès refusé. Seuls les managers peuvent valider les demandes.'], 403);
-    }
-
-        // Récupérer la demande pour obtenir les infos
-        $stmt = $this->pdo->prepare("SELECT * FROM demandes WHERE id = ?");
-        $stmt->execute([$id]);
+        // Récupérer la demande
+        $sql = "SELECT * FROM demandes WHERE id = :id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['id' => $requestId]);
         $demande = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$demande) {
-            respondJson(['error' => 'Demande introuvable'], 404);
+            respondJson(['error' => 'Demande non trouvée'], 404);
+            return;
         }
 
-        // Calculer le nombre de jours si pas déjà défini
-        $nb_jours = $demande['nb_jours'];
-        if (!$nb_jours || $nb_jours <= 0) {
-            $nb_jours = daysBetweenInclusive($demande['date_debut'], $demande['date_fin']);
-            // Mettre à jour le nb_jours dans la demande
-            $this->pdo->prepare("UPDATE demandes SET nb_jours = ? WHERE id = ?")->execute([$nb_jours, $id]);
+        // Mise à jour du statut
+        $sql = "UPDATE demandes SET statut = :statut, handle_comment = :comment WHERE id = :id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            'statut' => $newStatus,
+            'comment' => $handleComment,
+            'id' => $requestId
+        ]);
+
+        // ✅ CRÉER UNE NOTIFICATION
+        $notification = new NotificationController();
+        
+        if ($newStatus === 'validee') {
+            $notification->create(
+                $demande['utilisateur_id'],
+                '✅ Demande validée',
+                'Votre demande de congé du ' . date('d/m/Y', strtotime($demande['date_debut'])) . ' a été validée.',
+                'success'
+            );
+        } elseif ($newStatus === 'refusee') {
+            $message = 'Votre demande de congé du ' . date('d/m/Y', strtotime($demande['date_debut'])) . ' a été refusée.';
+            if ($handleComment) {
+                $message .= ' Motif: ' . $handleComment;
+            }
+            $notification->create(
+                $demande['utilisateur_id'],
+                '❌ Demande refusée',
+                $message,
+                'error'
+            );
+        }
+
+        respondJson(['success' => true, 'message' => 'Statut mis à jour']);
+        
+    } catch (PDOException $e) {
+        error_log("❌ Erreur updateStatus: " . $e->getMessage());
+        respondJson(['error' => 'Erreur serveur'], 500);
+    }
 }
-
-        // Mettre à jour le statut
-        $stmt = $this->pdo->prepare("UPDATE demandes SET statut = ? WHERE id = ?");
-        $stmt->execute([$status, $id]);
-
-        // Si la demande est validée, mettre à jour le solde_consomme de l'employé
-        if ($status === 'validee') {
-            $stmt = $this->pdo->prepare("
-                UPDATE utilisateurs 
-                SET solde_consomme = solde_consomme + ? 
-                WHERE id = ?
-            ");
-            $stmt->execute([$nb_jours, $demande['utilisateur_id']]);
-        }
-        // Si la demande était validée et est maintenant refusée/annulée, retirer les jours
-        elseif ($demande['statut'] === 'validee' && ($status === 'refusee' || $status === 'annulee')) {
-            $stmt = $this->pdo->prepare("
-                UPDATE utilisateurs 
-                SET solde_consomme = GREATEST(0, solde_consomme - ?) 
-                WHERE id = ?
-            ");
-            $stmt->execute([$nb_jours, $demande['utilisateur_id']]);
-        }
-
-        $this->pdo
-            ->prepare("INSERT INTO audit_demandes (demande_id, action, fait_par, commentaire) VALUES (?, 'changement_statut', ?, ?)")
-            ->execute([$id, $handled_by, $comment]);
-
-        // Notification employé
-        if ($status === 'validee') {
-            $this->notif->createForUser((int)$demande['utilisateur_id'], "Votre demande ({$demande['date_debut']} → {$demande['date_fin']}) a été acceptée.", (int)$id);
-        } elseif ($status === 'refusee') {
-            $this->notif->createForUser((int)$demande['utilisateur_id'], "Votre demande ({$demande['date_debut']} → {$demande['date_fin']}) a été refusée.", (int)$id);
-        }
-
-        respondJson(['ok' => true, 'nb_jours' => $nb_jours]);
-                }
-
     // GET /api/collaborateurs - Liste des employés avec leurs soldes
     public function listCollaborateurs(): void
     {
@@ -338,7 +322,7 @@ class RequestController
     }
 
     // GET /api/stats - Statistiques réelles
-   public function getStats(): void
+ public function getStats(): void
 {
     try {
         // Total employes
@@ -349,28 +333,80 @@ class RequestController
         $sql = "
             SELECT COUNT(DISTINCT d.utilisateur_id) 
             FROM demandes d
-            JOIN utilisateurs u ON u.id = d.utilisateur_id
-            JOIN roles r ON r.id = u.role_id
             WHERE d.statut = 'validee' 
-            AND r.nom = 'employe'
             AND CURDATE() BETWEEN d.date_debut AND d.date_fin";
         $enConge = (int)$this->pdo->query($sql)->fetchColumn();
 
         $presentAujourdhui = $totalEmployes - $enConge;
         
         // Demandes en attente
-        $sql = "
-            SELECT COUNT(*) 
-            FROM demandes d
-            WHERE d.statut = 'en_attente'";
+        $sql = "SELECT COUNT(*) FROM demandes WHERE statut = 'en_attente'";
         $demandesEnAttente = (int)$this->pdo->query($sql)->fetchColumn();
+
+        // Répartition par type
+        $sql = "
+            SELECT t.nom as type, COUNT(*) as count, SUM(d.nb_jours) as total_jours
+            FROM demandes d
+            JOIN types_conges t ON t.id = d.type_id
+            WHERE d.statut = 'validee'
+            GROUP BY t.nom
+        ";
+        $stmt = $this->pdo->query($sql);
+        $byType = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // ✅ ÉVOLUTION MENSUELLE - FORCER LES 12 MOIS
+        // Récupérer toutes les demandes validées par mois
+        $sql = "
+            SELECT 
+                DATE_FORMAT(d.date_debut, '%Y-%m') as month,
+                COUNT(*) as count,
+                SUM(d.nb_jours) as total_jours
+            FROM demandes d
+            WHERE d.statut = 'validee'
+            GROUP BY DATE_FORMAT(d.date_debut, '%Y-%m')
+        ";
+        $stmt = $this->pdo->query($sql);
+        $existingData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Créer un tableau associatif [mois => données]
+        $dataByMonth = [];
+        foreach ($existingData as $row) {
+            $dataByMonth[$row['month']] = [
+                'count' => (int)$row['count'],
+                'total_jours' => (int)$row['total_jours']
+            ];
+        }
+        
+        // ✅ GÉNÉRER EXPLICITEMENT LES 12 DERNIERS MOIS
+        $perMonth = [];
+        $moisFr = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+        
+        for ($i = 11; $i >= 0; $i--) {
+            $timestamp = strtotime("-$i months");
+            $month = date('Y-m', $timestamp); // 2026-02
+            $monthNum = (int)date('m', $timestamp) - 1; // 0-11
+            $year = date('Y', $timestamp);
+            $monthLabel = $moisFr[$monthNum] . ' ' . $year; // Fév 2026
+            
+            $perMonth[] = [
+                'month' => $month,
+                'month_label' => $monthLabel,
+                'count' => isset($dataByMonth[$month]) ? $dataByMonth[$month]['count'] : 0,
+                'total_jours' => isset($dataByMonth[$month]) ? $dataByMonth[$month]['total_jours'] : 0
+            ];
+        }
+        
+        error_log("✅ PerMonth généré avec " . count($perMonth) . " mois");
+        error_log("Détails: " . json_encode($perMonth));
 
         respondJson([
             'total_employes' => $totalEmployes,
             'present_aujourdhui' => $presentAujourdhui,
             'conges_en_cours' => $enConge,
             'conges_en_attente' => $demandesEnAttente,
-            'taux_absence' => $totalEmployes > 0 ? round(($enConge / $totalEmployes) * 100, 1) : 0
+            'taux_absence' => $totalEmployes > 0 ? round(($enConge / $totalEmployes) * 100, 1) : 0,
+            'byType' => $byType,
+            'perMonth' => $perMonth
         ]);
         
     } catch (PDOException $e) {
