@@ -57,7 +57,7 @@ function Validation({ userEmail, userRole, onLogout }) {
         if (data.success) {
           setShowRefusModal(null);
           setRefusMotif('');
-          loadDemandes(); // Recharger la liste
+          loadDemandes();
           alert(statut === 'validee' ? '✅ Demande validée !' : '❌ Demande refusée');
         } else {
           alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
@@ -115,7 +115,7 @@ function Validation({ userEmail, userRole, onLogout }) {
                       </div>
                       <div>
                         <h3 className="font-bold text-lg text-gray-900">
-                          {demande.prenom} {demande.nom}
+                          {demande.nom_complet || `${demande.prenom} ${demande.nom}`}
                         </h3>
                         <p className="text-sm text-gray-500">{demande.email}</p>
                       </div>
@@ -151,20 +151,21 @@ function Validation({ userEmail, userRole, onLogout }) {
                     </div>
                   )}
 
-                  <div className="flex gap-3">
+                  {/* ✅ BOUTONS PETITS */}
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleValidation(demande.id, 'validee')}
                       disabled={processing === demande.id}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
                     >
                       {processing === demande.id ? (
                         <>
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          Validation...
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span className="text-xs">Validation...</span>
                         </>
                       ) : (
                         <>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                           Valider
@@ -174,9 +175,9 @@ function Validation({ userEmail, userRole, onLogout }) {
                     <button
                       onClick={() => setShowRefusModal(demande.id)}
                       disabled={processing === demande.id}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                       Refuser

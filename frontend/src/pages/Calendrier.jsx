@@ -26,7 +26,7 @@ function YearGrid({ date, events }) {
           </div>
           <div className="grid grid-cols-7 gap-1 text-xs">
             {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (<div key={i} className="text-gray-500 text-center py-1">{d}</div>))}
-            {Array.from({ length: m.clone().startOf('month').day() || 0 }).map((_, i) => (
+            {Array.from({ length: m.clone().startOf('month').day() === 0 ? 6 : m.clone().startOf('month').day() - 1 }).map((_, i) => (
               <div key={`empty-${i}`} />
             ))}
             {Array.from({ length: m.daysInMonth() }, (_, i) => {
@@ -56,11 +56,14 @@ function Calendrier({ userEmail, userRole, onLogout }) {
     const start = moment(startDate).format('YYYY-MM-DD');
     const end = moment(endDate).format('YYYY-MM-DD');
 
+    console.log('📅 Chargement calendrier:', start, '→', end);
+
     fetch(`http://localhost:8000/api/calendar?start=${start}&end=${end}`, {
       credentials: 'include'
     })
       .then(res => res.json())
       .then(data => {
+        console.log('📅 Données reçues:', data);
         const formattedEvents = (Array.isArray(data) ? data : []).map(event => ({
           id: event.id,
           title: `${event.title} - ${event.type}`,
@@ -72,10 +75,12 @@ function Calendrier({ userEmail, userRole, onLogout }) {
             statut: event.statut
           }
         }));
+        console.log('✅ Événements formatés:', formattedEvents.length);
         setEvents(formattedEvents);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('❌ Erreur calendrier:', err);
         setLoading(false);
       });
   };
