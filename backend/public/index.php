@@ -38,7 +38,7 @@ $userController = new UserController();
 // ============ MOT DE PASSE OUBLIÉ ============
 if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
     error_log("→ Route: FORGOT PASSWORD - VERIFY EMAIL");
-    $passwordResetController->verifyEmail($body);
+    $passwordResetController->requestReset($body);
     exit;
 }
 if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {

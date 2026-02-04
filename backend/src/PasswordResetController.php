@@ -36,14 +36,20 @@ class PasswordResetController {
             return;
         }
 
-        // Vérifier que l'utilisateur existe et a un numéro de téléphone
-        $stmt = $this->pdo->prepare("
-            SELECT id, numero_telephone 
-            FROM utilisateurs 
-            WHERE LOWER(email) = LOWER(?)
-        ");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = null;
+        try {
+            $stmt = $this->pdo->prepare("SELECT id, numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            try {
+                $stmt = $this->pdo->prepare("SELECT id, telephone as numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            } catch (Exception $e2) {
+                $user = null;
+            }
+        }
 
         if (!$user) {
             respondJson(['error' => 'Aucun compte associé à cet email'], 404);
@@ -96,13 +102,20 @@ class PasswordResetController {
         }
 
         // Vérifier que l'email et le téléphone correspondent
-        $stmt = $this->pdo->prepare("
-            SELECT id, numero_telephone 
-            FROM utilisateurs 
-            WHERE LOWER(email) = LOWER(?)
-        ");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = null;
+        try {
+            $stmt = $this->pdo->prepare("SELECT id, numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            try {
+                $stmt = $this->pdo->prepare("SELECT id, telephone as numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            } catch (Exception $e2) {
+                $user = null;
+            }
+        }
 
         if (!$user) {
             respondJson(['error' => 'Email invalide'], 404);
