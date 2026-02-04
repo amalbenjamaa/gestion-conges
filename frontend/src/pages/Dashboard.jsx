@@ -6,7 +6,6 @@ function Dashboard({ userEmail, userRole, onLogout }) {
   const [stats, setStats] = useState(null);
   const [employes, setEmployes] = useState([]);
   const [demandesRecentes, setDemandesRecentes] = useState([]);
-  const [demandesEnAttente, setDemandesEnAttente] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,32 +20,22 @@ function Dashboard({ userEmail, userRole, onLogout }) {
       })
       .catch(err => console.error('❌ Erreur stats:', err));
 
-    // Charger les EMPLOYÉS uniquement (role_id = 1)
-    fetch('http://localhost:8000/api/employes', { credentials: 'include' })
-      .then(res => {
-        console.log('👥 Employés status:', res.status);
-        return res.json();
-      })
-      .then(data => {
-        console.log('👥 Employés reçus:', data);
-        const employesList = data.employes || [];
-        console.log('✅ Nombre d\'employés:', employesList.length);
-        setEmployes(employesList);
-      })
-      .catch(err => console.error('❌ Erreur employés:', err));
-
-    // Charger les demandes EN ATTENTE (pour la carte jaune)
-    fetch('http://localhost:8000/api/requests', { credentials: 'include' })
+    // Charger les employés
+    fetch('http://localhost:8000/api/users', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
-        console.log('📋 Demandes en attente reçues:', data);
-        const demandes = data.requests || [];
-        console.log('✅ Nombre de demandes en attente:', demandes.length);
-        setDemandesEnAttente(demandes);
+        console.log('👥 Users brut:', data);
+        const usersList = data.users || [];
+        console.log('👥 Total users:', usersList.length);
+        console.log('👥 Premier user:', usersList[0]);
+        
+        // NE PAS FILTRER - afficher TOUS les utilisateurs pour debug
+        console.log('✅ Tous les utilisateurs:', usersList);
+        setEmployes(usersList);
       })
-      .catch(err => console.error('❌ Erreur demandes en attente:', err));
+      .catch(err => console.error('❌ Erreur users:', err));
 
-    // Charger les demandes des 7 derniers jours (pour la liste)
+    // Charger les demandes des 7 derniers jours (tous statuts)
     fetch('http://localhost:8000/api/requests/recent', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -101,7 +90,7 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                 </svg>
               </div>
             </div>
-            <p className="text-blue-100 text-sm font-medium mb-1">Total Employés</p>
+            <p className="text-blue-100 text-sm font-medium mb-1">Total Utilisateurs</p>
             <p className="text-4xl font-bold">{employes.length}</p>
           </div>
 
@@ -129,7 +118,6 @@ function Dashboard({ userEmail, userRole, onLogout }) {
             <p className="text-4xl font-bold">{stats?.enConge || stats?.conges_en_cours || 0}</p>
           </div>
 
-          {/* ✅ Carte modifiée : Demandes en attente */}
           <div className="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl shadow-xl p-6 text-white">
             <div className="flex items-center justify-between mb-4">
               <div className="bg-white/20 p-3 rounded-xl">
@@ -138,15 +126,15 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                 </svg>
               </div>
             </div>
-            <p className="text-yellow-100 text-sm font-medium mb-1">En attente</p>
-            <p className="text-4xl font-bold">{demandesEnAttente.length}</p>
+            <p className="text-yellow-100 text-sm font-medium mb-1">Demandes 7j</p>
+            <p className="text-4xl font-bold">{demandesRecentes.length}</p>
           </div>
         </div>
 
         {/* 2 COLONNES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* GAUCHE : Demandes récentes (7 derniers jours) */}
+          {/* GAUCHE : Demandes récentes (7 derniers jours, tous statuts) */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
@@ -207,11 +195,11 @@ function Dashboard({ userEmail, userRole, onLogout }) {
             </div>
           </div>
 
-          {/* DROITE : Liste des EMPLOYÉS uniquement */}
+          {/* DROITE : Liste des employés */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">
-                Employés ({employes.length})
+                Utilisateurs ({employes.length})
               </h2>
             </div>
 
@@ -221,27 +209,33 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                   <svg className="w-16 h-16 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
-                  <p className="font-medium">Aucun employé trouvé</p>
+                  <p className="font-medium">Aucun utilisateur trouvé</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {employes.map((emp) => (
-                    <div key={emp.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-green-300 hover:shadow-md transition-all">
+                    <div key={emp.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                          {emp.prenom?.[0]}{emp.nom?.[0]}
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ${
+                          emp.role === 'manager' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
+                          emp.role === 'rh' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                          'bg-gradient-to-br from-green-500 to-green-600'
+                        }`}>
+                          {emp.nom_complet?.[0] || emp.prenom?.[0]}{emp.nom?.[0] || ''}
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900">
-                            {emp.nom_complet}
+                            {emp.nom_complet || `${emp.prenom} ${emp.nom}`}
                           </p>
                           <p className="text-sm text-gray-500">{emp.email}</p>
-                          <p className="text-xs text-green-600 font-medium">👤 Employé</p>
+                          <p className="text-xs text-gray-400">
+                            {emp.role === 'rh' ? '👔 RH' : emp.role === 'manager' ? '👨‍💼 Manager' : '👤 Employé'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-green-600">
-                          {emp.solde_conges} jours
+                        <p className="text-sm font-semibold text-blue-600">
+                          {emp.solde_conges !== undefined ? emp.solde_conges : (emp.solde_total - emp.solde_consomme)} jours
                         </p>
                         <p className="text-xs text-gray-500">restants</p>
                       </div>
