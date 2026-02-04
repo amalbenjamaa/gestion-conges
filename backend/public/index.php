@@ -1,256 +1,121 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+header('Access-Control-Allow-Origin: http://localhost:5173');
+header('Access-Control-Allow-Credentials: true');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json; charset=utf-8');
 
-// Sessions
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-header('Content-Type: application/json; charset=utf-8');
-
-$allowedOrigins = ['http://localhost:5173', 'http://localhost:4173'];
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-
-if (in_array($origin, $allowedOrigins)) {
-    header("Access-Control-Allow-Origin: $origin");
-} else {
-    header('Access-Control-Allow-Origin: http://localhost:5173');
-}
-
-header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit(0);
-}
-
-// Charger Database
 require_once __DIR__ . '/../src/Database.php';
-
-// Charger Helpers
 require_once __DIR__ . '/../src/Helpers.php';
+require_once __DIR__ . '/../src/AuthController.php';
+require_once __DIR__ . '/../src/RequestController.php';
+require_once __DIR__ . '/../src/StatsController.php';
+require_once __DIR__ . '/../src/UserController.php'; // ✅ VÉRIFIER CETTE LIGNE
 
-// Charger les contrôleurs
-$controllers = [
-    'AuthController',
-    'UserController',
-    'DemandeController',
-    'StatsController',
-    'RequestController',
-    'NotificationController',
-    'ForgotPasswordController',
-    'PasswordResetController',
-    'AiController'
-];
-
-foreach ($controllers as $controller) {
-    $path = __DIR__ . "/../src/$controller.php";
-    if (file_exists($path)) {
-        require_once $path;
-    }
-}
-
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$requestUri = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];
 
-error_log("========================================");
-error_log("REQUEST: $method $path");
+$path = parse_url($requestUri, PHP_URL_PATH);
 
-try {
-    // Initialiser les contrôleurs
-    $auth = class_exists('AuthController') ? new AuthController() : null;
-    $user = class_exists('UserController') ? new UserController() : null;
-    $demande = class_exists('DemandeController') ? new DemandeController() : null;
-    $stats = class_exists('StatsController') ? new StatsController() : null;
-    $request = class_exists('RequestController') ? new RequestController() : null;
-    $notification = class_exists('NotificationController') ? new NotificationController() : null;
-    $forgot = class_exists('ForgotPasswordController') ? new ForgotPasswordController() : null;
-    $passwordReset = class_exists('PasswordResetController') ? new PasswordResetController() : null;
-    $ai = class_exists('AiController') ? new AiController() : null;
+error_log("===================");
+error_log("📨 $method $path");
+error_log("Session ID: " . session_id());
+error_log("Session User: " . ($_SESSION['user_id'] ?? 'NON CONNECTÉ'));
 
-    // ==================== AUTH ====================
-    if ($path === '/api/login' && $method === 'POST') {
-        $auth && $auth->login(getJsonInput());
-    }
+$auth = new AuthController();
+$requestController = new RequestController();
+$statsController = new StatsController();
+$userController = new UserController(); // ✅ VÉRIFIER CETTE LIGNE
 
-    if ($path === '/api/logout' && $method === 'POST') {
-        $auth && $auth->logout();
-    }
-
-    if ($path === '/api/me' && $method === 'GET') {
-        $auth && method_exists($auth, 'me') && $auth->me();
-    }
-
-    if ($path === '/api/me/avatar' && $method === 'POST') {
-        $auth && method_exists($auth, 'uploadAvatar') && $auth->uploadAvatar();
-    }
-
-    // ==================== USERS ====================
-    if ($path === '/api/users' && $method === 'GET') {
-        $user && $user->getAllUsers();
-    }
-
-    if ($path === '/api/users' && $method === 'POST') {
-        $user && $user->createUser(getJsonInput());
-    }
-
-    if (preg_match('#^/api/users/(\d+)$#', $path, $matches)) {
-        $userId = (int)$matches[1];
-        
-        if ($method === 'GET') {
-            $user && method_exists($user, 'getUserById') && $user->getUserById($userId);
-        }
-        
-        if ($method === 'PATCH') {
-            $user && method_exists($user, 'updateUser') && $user->updateUser($userId, getJsonInput());
-        }
-        
-        if ($method === 'DELETE') {
-            $user && method_exists($user, 'deleteUser') && $user->deleteUser($userId);
-        }
-    }
-
-    // ==================== PASSWORD RESET ====================
-    if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
-        $forgot && $forgot->verifyEmail(getJsonInput());
-    }
-
-    if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
-        $forgot && $forgot->verifyPhone(getJsonInput());
-    }
-
-    if ($path === '/api/forgot-password/reset' && $method === 'POST') {
-        $forgot && $forgot->resetPassword(getJsonInput());
-    }
-
-    if ($path === '/api/password-reset/request' && $method === 'POST') {
-        $passwordReset && $passwordReset->requestReset(getJsonInput());
-    }
-
-    if ($path === '/api/password-reset/verify-phone' && $method === 'POST') {
-        $passwordReset && $passwordReset->verifyPhone(getJsonInput());
-    }
-
-    if ($path === '/api/password-reset/reset' && $method === 'POST') {
-        $passwordReset && $passwordReset->resetPassword(getJsonInput());
-    }
-
-    // ==================== STATS ====================
-    if ($path === '/api/stats' && $method === 'GET') {
-        error_log("→ Route: STATS");
-        if ($stats && method_exists($stats, 'getStats')) {
-            $stats->getStats();
-        } else {
-            respondJson(['error' => 'StatsController non disponible'], 500);
-        }
-    }
-
-    // ==================== DEMANDES ====================
-    if ($path === '/api/demandes' && $method === 'GET') {
-        $demande && $demande->getAllDemandes();
-    }
-
-    if ($path === '/api/demandes' && $method === 'POST') {
-        $demande && $demande->createDemande(getJsonInput());
-    }
-
-    if (preg_match('#^/api/demandes/(\d+)$#', $path, $matches)) {
-        $demandeId = (int)$matches[1];
-        
-        if ($method === 'GET') {
-            $demande && method_exists($demande, 'getDemandeById') && $demande->getDemandeById($demandeId);
-        }
-        
-        if ($method === 'PATCH') {
-            $demande && method_exists($demande, 'updateDemande') && $demande->updateDemande($demandeId, getJsonInput());
-        }
-        
-        if ($method === 'DELETE') {
-            $demande && method_exists($demande, 'deleteDemande') && $demande->deleteDemande($demandeId);
-        }
-    }
-
-    // ==================== REQUESTS ====================
-    if ($path === '/api/requests' && $method === 'GET') {
-        error_log("→ Route: GET REQUESTS avec params: " . print_r($_GET, true));
-        if ($request && method_exists($request, 'listRequests')) {
-            $request->listRequests($_GET);
-        } else {
-            respondJson(['error' => 'RequestController non disponible'], 500);
-        }
-    }
-
-    if ($path === '/api/requests' && $method === 'POST') {
-        $request && method_exists($request, 'createRequest') && $request->createRequest(getJsonInput());
-    }
-
-    if (preg_match('#^/api/requests/(\d+)/status$#', $path, $matches) && $method === 'PATCH') {
-        $rid = (int)$matches[1];
-        if ($request && method_exists($request, 'updateStatus')) {
-            $payload = getJsonInput();
-            $request->updateStatus($rid, $payload['status'] ?? '', $payload['handle_comment'] ?? null);
-        }
-    }
-
-    // ==================== COLLABORATEURS ====================
-    if ($path === '/api/collaborateurs' && $method === 'GET') {
-        $request && method_exists($request, 'listCollaborateurs') && $request->listCollaborateurs();
-    }
-
-    // ==================== CALENDAR ====================
-    if ($path === '/api/calendar' && $method === 'GET') {
-        $request && method_exists($request, 'getCalendarEvents') && $request->getCalendarEvents($_GET);
-    }
-
-    // ==================== NOTIFICATIONS ====================
-    if ($path === '/api/notifications' && $method === 'GET') {
-        if ($notification && method_exists($notification, 'listMine')) {
-            $notification->listMine();
-        } else {
-            respondJson(['notifications' => [], 'unread_count' => 0]);
-        }
-    }
-
-    if ($path === '/api/notifications/mark-read' && $method === 'POST') {
-        if ($notification && method_exists($notification, 'markAllRead')) {
-            $notification->markAllRead();
-        } else {
-            respondJson(['success' => true]);
-        }
-    }
-
-    if (preg_match('#^/api/notifications/(\d+)$#', $path, $matches) && $method === 'DELETE') {
-        $notifId = (int)$matches[1];
-        if ($notification && method_exists($notification, 'delete')) {
-            $notification->delete($notifId);
-        } else {
-            respondJson(['success' => true]);
-        }
-    }
-
-    if (preg_match('#^/api/notifications/(\d+)/read$#', $path, $matches) && $method === 'PATCH') {
-        $notifId = (int)$matches[1];
-        if ($notification && method_exists($notification, 'markAsRead')) {
-            $notification->markAsRead($notifId);
-        } else {
-            respondJson(['success' => true]);
-        }
-    }
-
-    // ==================== AI ====================
-    if ($path === '/api/ai/chat' && $method === 'POST') {
-        $ai && method_exists($ai, 'chat') && $ai->chat(getJsonInput());
-    }
-
-    // ==================== 404 ====================
-    error_log("✗ Route non trouvée: $method $path");
-    respondJson(['error' => 'Route non trouvée', 'method' => $method, 'path' => $path], 404);
-
-} catch (Exception $e) {
-    error_log("✗ EXCEPTION: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    respondJson(['error' => $e->getMessage()], 500);
+// Login
+if ($path === '/api/login' && $method === 'POST') {
+    error_log("→ Route: LOGIN");
+    $input = json_decode(file_get_contents('php://input'), true);
+    $auth->login($input);
+    exit;
 }
+
+// Logout
+if ($path === '/api/logout' && $method === 'POST') {
+    error_log("→ Route: LOGOUT");
+    $auth->logout();
+    exit;
+}
+
+// Me
+if ($path === '/api/me' && $method === 'GET') {
+    error_log("→ Route: ME");
+    $auth->me();
+    exit;
+}
+
+// Stats
+if ($path === '/api/stats' && $method === 'GET') {
+    error_log("→ Route: STATS");
+    $statsController->getStats();
+    exit;
+}
+
+// ✅ EMPLOYÉS - AJOUTER CETTE ROUTE
+if ($path === '/api/employes' && $method === 'GET') {
+    error_log("→ Route: EMPLOYES");
+    $userController->getEmployes();
+    exit;
+}
+
+// Demandes en attente
+if ($path === '/api/requests' && $method === 'GET') {
+    error_log("→ Route: REQUESTS");
+    $requestController->getPendingRequests();
+    exit;
+}
+
+// Créer une demande
+if ($path === '/api/requests' && $method === 'POST') {
+    error_log("→ Route: CREATE REQUEST");
+    $input = json_decode(file_get_contents('php://input'), true);
+    $requestController->createRequest($input);
+    exit;
+}
+
+// Mes demandes
+if ($path === '/api/my-requests' && $method === 'GET') {
+    error_log("→ Route: MY REQUESTS");
+    $requestController->getMyRequests();
+    exit;
+}
+
+// Demandes récentes
+if ($path === '/api/requests/recent' && $method === 'GET') {
+    error_log("→ Route: RECENT REQUESTS");
+    $requestController->getRecentRequests();
+    exit;
+}
+
+// Valider/Refuser
+if (preg_match('#^/api/requests/(\d+)/(validate|reject)$#', $path, $matches)) {
+    $requestId = (int)$matches[1];
+    $action = $matches[2];
+    error_log("→ Route: REQUEST $action #$requestId");
+    
+    $input = json_decode(file_get_contents('php://input'), true);
+    $comment = $input['comment'] ?? null;
+    
+    $newStatus = ($action === 'validate') ? 'validee' : 'refusee';
+    $requestController->updateStatus($requestId, $newStatus, $comment);
+    exit;
+}
+
+// Route non trouvée
+error_log("❌ Route non trouvée: $path");
+respondJson(['error' => 'Route non trouvée', 'path' => $path], 404);

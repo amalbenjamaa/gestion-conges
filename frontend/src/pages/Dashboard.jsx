@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 
 function Dashboard({ userEmail, userRole, onLogout }) {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [employes, setEmployes] = useState([]);
   const [demandesRecentes, setDemandesRecentes] = useState([]);
@@ -21,19 +22,13 @@ function Dashboard({ userEmail, userRole, onLogout }) {
       .catch(err => console.error('❌ Erreur stats:', err));
 
     // Charger les employés
-    fetch('http://localhost:8000/api/users', { credentials: 'include' })
+    fetch('http://localhost:8000/api/employes', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
-        console.log('👥 Users brut:', data);
-        const usersList = data.users || [];
-        console.log('👥 Total users:', usersList.length);
-        console.log('👥 Premier user:', usersList[0]);
-        
-        // NE PAS FILTRER - afficher TOUS les utilisateurs pour debug
-        console.log('✅ Tous les utilisateurs:', usersList);
-        setEmployes(usersList);
+        console.log('👥 Employés:', data);
+        setEmployes(data.employes || []);
       })
-      .catch(err => console.error('❌ Erreur users:', err));
+      .catch(err => console.error('❌ Erreur employés:', err));
 
     // Charger les demandes des 7 derniers jours (tous statuts)
     fetch('http://localhost:8000/api/requests/recent', { credentials: 'include' })
@@ -90,7 +85,7 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                 </svg>
               </div>
             </div>
-            <p className="text-blue-100 text-sm font-medium mb-1">Total Utilisateurs</p>
+            <p className="text-blue-100 text-sm font-medium mb-1">Total Employés</p>
             <p className="text-4xl font-bold">{employes.length}</p>
           </div>
 
@@ -195,11 +190,11 @@ function Dashboard({ userEmail, userRole, onLogout }) {
             </div>
           </div>
 
-          {/* DROITE : Liste des employés */}
+          {/* DROITE : Liste des employés - CLIQUABLES */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">
-                Utilisateurs ({employes.length})
+                Employés ({employes.length})
               </h2>
             </div>
 
@@ -209,35 +204,41 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                   <svg className="w-16 h-16 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
-                  <p className="font-medium">Aucun utilisateur trouvé</p>
+                  <p className="font-medium">Aucun employé trouvé</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {employes.map((emp) => (
-                    <div key={emp.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all">
+                    <div 
+                      key={emp.id} 
+                      onClick={() => {
+                        console.log('👆 Clic sur employé:', emp.id);
+                        navigate(`/employe/${emp.id}`);
+                      }}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 hover:shadow-lg transition-all cursor-pointer"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ${
-                          emp.role === 'manager' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
-                          emp.role === 'rh' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
-                          'bg-gradient-to-br from-green-500 to-green-600'
-                        }`}>
-                          {emp.nom_complet?.[0] || emp.prenom?.[0]}{emp.nom?.[0] || ''}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                          {emp.nom_complet?.[0] || 'E'}
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900">
-                            {emp.nom_complet || `${emp.prenom} ${emp.nom}`}
+                            {emp.nom_complet}
                           </p>
                           <p className="text-sm text-gray-500">{emp.email}</p>
                           <p className="text-xs text-gray-400">
-                            {emp.role === 'rh' ? '👔 RH' : emp.role === 'manager' ? '👨‍💼 Manager' : '👤 Employé'}
+                            {emp.position || 'Employé'}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-blue-600">
-                          {emp.solde_conges !== undefined ? emp.solde_conges : (emp.solde_total - emp.solde_consomme)} jours
+                          {emp.solde_restant || 0} jours
                         </p>
                         <p className="text-xs text-gray-500">restants</p>
+                        {emp.est_en_conge && (
+                          <p className="text-xs text-orange-600 font-semibold mt-1">🏖️ En congé</p>
+                        )}
                       </div>
                     </div>
                   ))}
