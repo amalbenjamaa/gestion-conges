@@ -49,67 +49,65 @@ function Calendrier({ userEmail, userRole, onLogout }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState('month'); // 'month' | 'week' | 'day' | 'year'
+  const [view, setView] = useState('month');
 
-  const loadEvents = (startDate, endDate) => {
+  const loadEvents = () => {
     setLoading(true);
-    const start = moment(startDate).format('YYYY-MM-DD');
-    const end = moment(endDate).format('YYYY-MM-DD');
+    console.log('📅 Chargement calendrier...');
+    console.log('👤 Role:', userRole);
 
-    console.log('📅 Chargement calendrier:', start, '→', end);
+    // Manager = tous les événements, Employé = seulement les siens
+    const apiUrl = userRole === 'manager' 
+      ? 'http://localhost:8000/api/calendar/all'
+      : 'http://localhost:8000/api/calendar';
 
-    fetch(`http://localhost:8000/api/calendar?start=${start}&end=${end}`, {
-      credentials: 'include'
-    })
+    console.log('📡 API appelée:', apiUrl);
+
+    fetch(apiUrl, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         console.log('📅 Données reçues:', data);
-        const formattedEvents = (Array.isArray(data) ? data : []).map(event => ({
+        
+        const eventsList = data.events || [];
+        console.log('📋 Nombre d\'événements:', eventsList.length);
+        
+        const formattedEvents = eventsList.map(event => ({
           id: event.id,
-          title: `${event.title} - ${event.type}`,
-          start: new Date(event.start),
-          end: new Date(moment(event.end).add(1, 'day').format('YYYY-MM-DD')), // Ajouter 1 jour car end est inclusif
+          title: `${event.nom_complet || 'Congé'} - ${event.type_conge || 'Absence'}`,
+          start: new Date(event.date_debut),
+          end: new Date(moment(event.date_fin).add(1, 'day').format('YYYY-MM-DD')),
           resource: {
-            type: event.type,
-            color: event.color || '#3b82f6',
-            statut: event.statut
+            type: event.type_conge,
+            color: event.type_couleur || '#3b82f6',
+            motif: event.motif,
+            nom: event.nom_complet
           }
         }));
+        
         console.log('✅ Événements formatés:', formattedEvents.length);
         setEvents(formattedEvents);
         setLoading(false);
       })
       .catch((err) => {
         console.error('❌ Erreur calendrier:', err);
+        setEvents([]);
         setLoading(false);
       });
   };
 
-  const getRangeForView = (date, v) => {
-    const m = moment(date);
-    if (v === 'week') {
-      return { start: m.clone().startOf('week').toDate(), end: m.clone().endOf('week').toDate() };
-    }
-    if (v === 'day') {
-      return { start: m.clone().startOf('day').toDate(), end: m.clone().endOf('day').toDate() };
-    }
-    // default month
-    return { start: m.clone().startOf('month').toDate(), end: m.clone().endOf('month').toDate() };
-  };
-
   useEffect(() => {
-    const { start, end } = getRangeForView(currentDate, view === 'year' ? 'month' : view);
-    setTimeout(() => loadEvents(start, end), 0);
-
+    loadEvents();
+    
     const handleUpdate = () => {
-      const { start: s, end: e } = getRangeForView(currentDate, view === 'year' ? 'month' : view);
-      setTimeout(() => loadEvents(s, e), 0);
+      console.log('🔄 Rechargement du calendrier...');
+      loadEvents();
     };
+    
     window.addEventListener('demandeUpdated', handleUpdate);
     return () => {
       window.removeEventListener('demandeUpdated', handleUpdate);
     };
-  }, [currentDate, view]);
+  }, [userRole]);
 
   const eventStyleGetter = (event) => {
     const color = event.resource?.color || '#3b82f6';
@@ -128,8 +126,15 @@ function Calendrier({ userEmail, userRole, onLogout }) {
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Calendrier d'Équipe</h2>
-        <p className="text-gray-600 text-sm">Visualisez les absences et congés de tous les collaborateurs</p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          Calendrier {userRole === 'manager' ? "d'Équipe" : 'Personnel'}
+        </h2>
+        <p className="text-gray-600 text-sm">
+          {userRole === 'manager' 
+            ? 'Visualisez les absences et congés de tous les collaborateurs'
+            : 'Visualisez vos congés validés'
+          }
+        </p>
       </div>
       <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
         {loading ? (
