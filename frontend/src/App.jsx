@@ -191,6 +191,21 @@ function App() {
           }
         />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route
+  path="/mes-demandes"
+  element={
+    userEmail ? (
+      <MesDemandes
+        userEmail={userEmail}
+        userRole={userRole}
+        userId={userId}
+        onLogout={handleLogout}
+      />
+    ) : (
+      <Navigate to="/login" replace />
+    )
+  }
+/>
       </Routes>
     </Router>
   );
