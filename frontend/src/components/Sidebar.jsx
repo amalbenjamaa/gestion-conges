@@ -8,6 +8,7 @@ function Sidebar({ userRole, isOpen, onClose }) {
   if (userRole === 'manager') {
     menuItems = [
       { path: '/dashboard', label: 'Tableau de bord', icon: '📊' },
+      { path: '/ajouter-utilisateur', label: 'Ajouter un utilisateur', icon: '➕' },
       { path: '/calendrier', label: 'Calendrier', icon: '📅' },
       { path: '/statistiques', label: 'Statistiques', icon: '📈' },
       { path: '/validation', label: 'Validation', icon: '✓' },

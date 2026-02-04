@@ -20,58 +20,66 @@ require_once __DIR__ . '/../src/AuthController.php';
 require_once __DIR__ . '/../src/RequestController.php';
 require_once __DIR__ . '/../src/StatsController.php';
 require_once __DIR__ . '/../src/UserController.php';
+require_once __DIR__ . '/../src/PasswordResetController.php';
 
+// Parse la requête
 $requestUri = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($requestUri, PHP_URL_PATH);
+// --- Correction importante : lire le body si besoin
+$body = json_decode(file_get_contents('php://input'), true);
 
-require_once __DIR__ . '/../src/PasswordResetController.php';
-
-// Instancier le contrôleur
 $passwordResetController = new PasswordResetController();
-
-// ============ MOT DE PASSE OUBLIÉ ============
-if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
-    error_log("→ Route: FORGOT PASSWORD - VERIFY EMAIL");
-    $passwordResetController->verifyEmail();
-    exit;
-}
-
-if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
-    error_log("→ Route: FORGOT PASSWORD - VERIFY PHONE");
-    $passwordResetController->verifyPhone();
-    exit;
-}
-
-if ($path === '/api/forgot-password/reset' && $method === 'POST') {
-    error_log("→ Route: FORGOT PASSWORD - RESET");
-    $passwordResetController->resetPassword();
-    exit;
-}
-error_log("===================");
-error_log("📨 $method $path");
-error_log("Session ID: " . session_id());
-error_log("Session User: " . ($_SESSION['user_id'] ?? 'NON CONNECTÉ'));
-
 $auth = new AuthController();
 $requestController = new RequestController();
 $statsController = new StatsController();
 $userController = new UserController();
 
-// ============ AUTHENTIFICATION ============
-if ($path === '/api/login' && $method === 'POST') {
-    error_log("→ Route: LOGIN");
-    $input = json_decode(file_get_contents('php://input'), true);
-    $auth->login($input);
+// ============ MOT DE PASSE OUBLIÉ ============
+if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - VERIFY EMAIL");
+    $passwordResetController->verifyEmail($body);
+    exit;
+}
+if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - VERIFY PHONE");
+    $passwordResetController->verifyPhone($body);
+    exit;
+}
+if ($path === '/api/forgot-password/reset' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - RESET");
+    $passwordResetController->resetPassword($body);
     exit;
 }
 
+// ============ UTILISATEUR : CRÉATION ============
+if ($method === 'POST' && $path === '/api/users') {
+    $userController->createUser($body);
+    exit;
+}
+
+// Dummy notifications endpoint (évite 404 console)
+if ($method === 'GET' && $path === '/api/notifications') {
+    echo json_encode([]);
+    exit;
+}
+
+error_log("===================");
+error_log("📨 $method $path");
+error_log("Session ID: " . session_id());
+error_log("Session User: " . ($_SESSION['user_id'] ?? 'NON CONNECTÉ'));
+
+// ============ AUTHENTIFICATION ============
+if ($path === '/api/login' && $method === 'POST') {
+    error_log("→ Route: LOGIN");
+    $auth->login($body);
+    exit;
+}
 if ($path === '/api/logout' && $method === 'POST') {
     error_log("→ Route: LOGOUT");
     $auth->logout();
     exit;
 }
-
 if ($path === '/api/me' && $method === 'GET') {
     error_log("→ Route: ME");
     $auth->me();
@@ -81,68 +89,47 @@ if ($path === '/api/me' && $method === 'GET') {
 // ============ UPLOAD AVATAR ============
 if ($path === '/api/me/avatar' && $method === 'POST') {
     error_log("→ Route: UPLOAD AVATAR");
-    
+
     if (!isset($_SESSION['user_id'])) {
         respondJson(['error' => 'Non authentifié'], 401);
         exit;
     }
-    
     if (!isset($_FILES['avatar'])) {
         respondJson(['error' => 'Aucun fichier envoyé'], 400);
         exit;
     }
-    
     $userId = $_SESSION['user_id'];
     $file = $_FILES['avatar'];
-    
-    error_log("📸 Upload avatar pour user $userId");
-    error_log("Fichier: " . $file['name'] . ", Type: " . $file['type'] . ", Taille: " . $file['size']);
-    
-    // Vérifier le type de fichier
     $allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
     if (!in_array($file['type'], $allowedTypes)) {
         error_log("❌ Type non autorisé: " . $file['type']);
         respondJson(['error' => 'Type de fichier non autorisé. Utilisez JPG, PNG, GIF ou WEBP.'], 400);
         exit;
     }
-    
-    // Vérifier la taille (max 5MB)
     if ($file['size'] > 5 * 1024 * 1024) {
         error_log("❌ Fichier trop gros: " . $file['size']);
         respondJson(['error' => 'Fichier trop volumineux (max 5MB)'], 400);
         exit;
     }
-    
-    // Créer le dossier s'il n'existe pas
     $uploadDir = __DIR__ . '/uploads/avatars/';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
         error_log("📁 Dossier créé: $uploadDir");
     }
-    
-    // Générer un nom unique
     $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
     $filename = 'avatar_' . $userId . '_' . uniqid() . '.' . $extension;
     $filepath = $uploadDir . $filename;
-    
-    // Déplacer le fichier
     if (!move_uploaded_file($file['tmp_name'], $filepath)) {
         error_log("❌ Erreur move_uploaded_file");
         respondJson(['error' => 'Erreur lors du téléchargement'], 500);
         exit;
     }
-    
-    // URL publique
     $avatarUrl = 'http://localhost:8000/uploads/avatars/' . $filename;
-    
-    // Mettre à jour la base de données
     try {
         $pdo = Database::getPdo();
         $stmt = $pdo->prepare("UPDATE utilisateurs SET avatar_url = ? WHERE id = ?");
         $stmt->execute([$avatarUrl, $userId]);
-        
         error_log("✅ Avatar uploadé: $avatarUrl");
-        
         respondJson([
             'success' => true,
             'avatar_url' => $avatarUrl
@@ -151,7 +138,6 @@ if ($path === '/api/me/avatar' && $method === 'POST') {
         error_log("❌ Erreur DB: " . $e->getMessage());
         respondJson(['error' => 'Erreur base de données'], 500);
     }
-    
     exit;
 }
 
@@ -175,23 +161,19 @@ if ($path === '/api/requests/recent' && $method === 'GET') {
     $requestController->getRecentRequests();
     exit;
 }
-
 if ($path === '/api/my-requests' && $method === 'GET') {
     error_log("→ Route: MY REQUESTS");
     $requestController->getMyRequests();
     exit;
 }
-
 if ($path === '/api/requests' && $method === 'GET') {
     error_log("→ Route: REQUESTS");
     $requestController->getPendingRequests();
     exit;
 }
-
 if ($path === '/api/requests' && $method === 'POST') {
     error_log("→ Route: CREATE REQUEST");
-    $input = json_decode(file_get_contents('php://input'), true);
-    $requestController->createRequest($input);
+    $requestController->createRequest($body);
     exit;
 }
 
@@ -199,44 +181,33 @@ if ($path === '/api/requests' && $method === 'POST') {
 if (preg_match('#^/api/requests/(\d+)/status$#', $path, $matches) && $method === 'PATCH') {
     $requestId = (int)$matches[1];
     error_log("→ Route: UPDATE STATUS #$requestId");
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    $status = $input['status'] ?? null;
-    $comment = $input['comment'] ?? null;
-    
+    $status = $body['status'] ?? null;
+    $comment = $body['comment'] ?? null;
     error_log("Status demandé: $status");
-    
     if (!in_array($status, ['validee', 'refusee'])) {
         respondJson(['error' => 'Statut invalide'], 400);
         exit;
     }
-    
     $requestController->updateStatus($requestId, $status, $comment);
     exit;
 }
-
 // ============ VALIDATION/REFUS DEMANDES (POST avec validate/reject) ============
 if (preg_match('#^/api/requests/(\d+)/(validate|reject)$#', $path, $matches)) {
     $requestId = (int)$matches[1];
     $action = $matches[2];
     error_log("→ Route: REQUEST $action #$requestId");
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    $comment = $input['comment'] ?? null;
-    
+    $comment = $body['comment'] ?? null;
     $newStatus = ($action === 'validate') ? 'validee' : 'refusee';
     $requestController->updateStatus($requestId, $newStatus, $comment);
     exit;
 }
 
 // ============ CALENDRIER ============
-// ⚠️ IMPORTANT : /calendar/all AVANT /calendar
 if ($path === '/api/calendar/all' && $method === 'GET') {
     error_log("→ Route: CALENDAR ALL");
     $userController->getAllCalendarEvents();
     exit;
 }
-
 if ($path === '/api/calendar' && $method === 'GET') {
     error_log("→ Route: CALENDAR");
     $userController->getCalendarEvents();

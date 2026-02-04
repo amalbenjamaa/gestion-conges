@@ -2,13 +2,32 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 
+
 function Dashboard({ userEmail, userRole, onLogout }) {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [employes, setEmployes] = useState([]);
   const [demandesRecentes, setDemandesRecentes] = useState([]);
   const [loading, setLoading] = useState(true);
+<div className="flex items-center justify-between">
+  <div>
+    <h1 className="text-3xl font-bold text-gray-900 mb-2">Tableau de bord Manager</h1>
+    <p className="text-gray-600">Vue d'ensemble de l'activité</p>
+  </div>
 
+  <div className="flex items-center gap-3">
+    <Link
+      to="/ajouter-utilisateur"
+      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 transition"
+    >
+      {/* Icône + texte */}
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+      </svg>
+      Ajouter un utilisateur
+    </Link>
+  </div>
+</div>
   useEffect(() => {
     console.log('🔄 Chargement Dashboard Manager...');
     
