@@ -1,237 +1,218 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 
 function MesDemandes({ userEmail, userRole, onLogout }) {
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all'); // all, en_attente, validee, refusee
+
+  useEffect(() => {
+    loadDemandes();
+  }, []);
 
   const loadDemandes = () => {
-    console.log('🔄 Chargement de mes demandes...');
     setLoading(true);
-    
-    fetch('http://localhost:8000/api/requests', { 
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      }
+    console.log('🔄 Chargement de mes demandes...');
+
+    fetch('http://localhost:8000/api/my-requests', {
+      credentials: 'include'
     })
       .then(res => {
         console.log('📡 Status:', res.status);
-        if (!res.ok) {
-          throw new Error(`Erreur HTTP: ${res.status}`);
-        }
         return res.json();
       })
       .then(data => {
         console.log('✅ Données reçues:', data);
         console.log('📋 Nombre de demandes:', data.requests?.length || 0);
-        
-        if (data.requests && Array.isArray(data.requests)) {
-          setDemandes(data.requests);
-          setError('');
-        } else {
-          console.error('❌ Format de données incorrect:', data);
-          setDemandes([]);
-          setError('Format de données incorrect');
-        }
+        setDemandes(data.requests || []);
         setLoading(false);
       })
       .catch(err => {
-        console.error('❌ Erreur chargement:', err);
-        setError(err.message);
+        console.error('❌ Erreur:', err);
         setDemandes([]);
         setLoading(false);
       });
   };
 
-  useEffect(() => {
-    loadDemandes();
-    
-    // Recharger toutes les 30 secondes
-    const interval = setInterval(loadDemandes, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const getStatusBadge = (statut) => {
     const badges = {
       'en_attente': (
-        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold inline-flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          En attente
+        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+          ⏳ En attente
         </span>
       ),
       'validee': (
-        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold inline-flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Validée
+        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+          ✅ Validée
         </span>
       ),
       'refusee': (
-        <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold inline-flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Refusée
+        <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+          ❌ Refusée
         </span>
       )
     };
     return badges[statut] || badges['en_attente'];
   };
 
-  if (loading) {
-    return (
-      <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="ml-4 text-gray-600">Chargement de vos demandes...</span>
-        </div>
-      </Layout>
-    );
-  }
+  const getStatusColor = (statut) => {
+    const colors = {
+      'en_attente': 'border-l-yellow-500',
+      'validee': 'border-l-green-500',
+      'refusee': 'border-l-red-500'
+    };
+    return colors[statut] || 'border-l-gray-500';
+  };
 
-  if (error) {
-    return (
-      <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-        <div className="space-y-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mes demandes</h1>
-          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
-            <p className="font-semibold">❌ Erreur de chargement</p>
-            <p className="text-sm mt-1">{error}</p>
-            <button
-              onClick={loadDemandes}
-              className="mt-3 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              Réessayer
-            </button>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const filteredDemandes = demandes.filter(d => {
+    if (filter === 'all') return true;
+    return d.statut === filter;
+  });
+
+  const stats = {
+    all: demandes.length,
+    en_attente: demandes.filter(d => d.statut === 'en_attente').length,
+    validee: demandes.filter(d => d.statut === 'validee').length,
+    refusee: demandes.filter(d => d.statut === 'refusee').length
+  };
 
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
-      <div className="space-y-6">
-        {/* En-tête */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Mes demandes</h1>
-            <p className="text-gray-600">
-              {demandes.length > 0 
-                ? `${demandes.length} demande${demandes.length > 1 ? 's' : ''} au total`
-                : 'Aucune demande pour le moment'}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Mes Demandes de Congés</h2>
+        <p className="text-gray-600 text-sm">Consultez l'historique de toutes vos demandes</p>
+      </div>
+
+      {/* Filtres */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          onClick={() => setFilter('all')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === 'all'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          Toutes ({stats.all})
+        </button>
+        <button
+          onClick={() => setFilter('en_attente')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === 'en_attente'
+              ? 'bg-yellow-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          ⏳ En attente ({stats.en_attente})
+        </button>
+        <button
+          onClick={() => setFilter('validee')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === 'validee'
+              ? 'bg-green-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          ✅ Validées ({stats.validee})
+        </button>
+        <button
+          onClick={() => setFilter('refusee')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === 'refusee'
+              ? 'bg-red-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          ❌ Refusées ({stats.refusee})
+        </button>
+      </div>
+
+      {/* Liste des demandes */}
+      <div className="bg-white/70 backdrop-blur-md p-6 rounded-lg shadow-md border border-white/20">
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">
+            Chargement de vos demandes...
+          </div>
+        ) : filteredDemandes.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">
+              {filter === 'all' 
+                ? 'Aucune demande pour le moment'
+                : `Aucune demande ${filter === 'en_attente' ? 'en attente' : filter}`
+              }
             </p>
           </div>
-          <Link
-            to="/nouvelle-demande"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nouvelle demande
-          </Link>
-        </div>
-
-        {/* Liste des demandes */}
-        {demandes.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
-            <svg className="w-20 h-20 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-xl font-medium text-gray-900 mb-2">Aucune demande</p>
-            <p className="text-gray-500 mb-6">Vous n'avez pas encore créé de demande de congé</p>
-            <Link
-              to="/nouvelle-demande"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Créer une demande
-            </Link>
-          </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type de congé
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date début
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date fin
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Durée
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Statut
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Détails
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {demandes.map((demande) => (
-                    <tr key={demande.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div 
-                            className="w-3 h-3 rounded-full mr-3"
-                            style={{ backgroundColor: demande.type_couleur || '#3b82f6' }}
-                          ></div>
-                          <span className="font-medium text-gray-900">{demande.type_conge}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {demande.date_debut_formatted}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {demande.date_fin_formatted}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        <span className="font-semibold">{demande.nb_jours}</span> jour{demande.nb_jours > 1 ? 's' : ''}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(demande.statut)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {demande.motif && (
-                          <div className="mb-1">
-                            <span className="text-gray-500">Motif: </span>
-                            {demande.motif}
-                          </div>
-                        )}
-                        {demande.handle_comment && (
-                          <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                            <span className="font-semibold">Refus: </span>
-                            {demande.handle_comment}
-                          </div>
-                        )}
-                        {!demande.motif && !demande.handle_comment && (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="space-y-4">
+            {filteredDemandes.map((demande) => (
+              <div
+                key={demande.id}
+                className={`border-l-4 ${getStatusColor(demande.statut)} bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-semibold text-gray-900 text-lg">
+                        {demande.type_conge}
+                      </h3>
+                      {getStatusBadge(demande.statut)}
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Demandé le {demande.date_demande_formatted}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs mb-1">📅 Date de début</p>
+                    <p className="font-semibold text-gray-900">{demande.date_debut_formatted}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs mb-1">📅 Date de fin</p>
+                    <p className="font-semibold text-gray-900">{demande.date_fin_formatted}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs mb-1">⏱️ Durée</p>
+                    <p className="font-semibold text-gray-900">
+                      {demande.nb_jours} jour{demande.nb_jours > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {demande.motif && (
+                  <div className="mt-4 bg-blue-50 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs mb-1">💬 Motif</p>
+                    <p className="text-gray-700 text-sm">{demande.motif}</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
+
+      {/* Résumé */}
+      {!loading && demandes.length > 0 && (
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white/70 backdrop-blur-md p-4 rounded-lg border border-gray-200 text-center">
+            <p className="text-2xl font-bold text-gray-800">{stats.all}</p>
+            <p className="text-xs text-gray-500">Total</p>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-center">
+            <p className="text-2xl font-bold text-yellow-800">{stats.en_attente}</p>
+            <p className="text-xs text-yellow-600">En attente</p>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-center">
+            <p className="text-2xl font-bold text-green-800">{stats.validee}</p>
+            <p className="text-xs text-green-600">Validées</p>
+          </div>
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200 text-center">
+            <p className="text-2xl font-bold text-red-800">{stats.refusee}</p>
+            <p className="text-xs text-red-600">Refusées</p>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
