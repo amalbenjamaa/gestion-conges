@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import logoMonconge from './assets/monconge-logo.png'; // ✅ AJOUTER CETTE LIGNE
+import { useNavigate, Link } from 'react-router-dom'; // ✅ Ajouter Link
+import logoMonconge from './assets/monconge-logo.png';
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
@@ -44,7 +44,6 @@ function Login({ onLogin }) {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="text-center mb-8">
-          {/* ✅ Logo avec import */}
           <img 
             src={logoMonconge} 
             alt="Moncongé" 
@@ -55,7 +54,6 @@ function Login({ onLogin }) {
             }}
           />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Connexion</h2>
-          
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -95,7 +93,25 @@ function Login({ onLogin }) {
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
+
+          {/* ✅ LIEN MOT DE PASSE OUBLIÉ */}
+          <div className="text-center mt-4">
+            <Link
+              to="/mot-de-passe-oublie"
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors inline-flex items-center gap-1"
+            >
+              <span>🔑</span>
+              <span>Mot de passe oublié ?</span>
+            </Link>
+          </div>
         </form>
+
+        {/* ✅ Optionnel : Info de test */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <p className="text-xs text-gray-500 text-center">
+            💡 Comptes de test disponibles dans la base de données
+          </p>
+        </div>
       </div>
     </div>
   );

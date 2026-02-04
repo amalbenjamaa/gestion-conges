@@ -25,6 +25,29 @@ $requestUri = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($requestUri, PHP_URL_PATH);
 
+require_once __DIR__ . '/../src/PasswordResetController.php';
+
+// Instancier le contrôleur
+$passwordResetController = new PasswordResetController();
+
+// ============ MOT DE PASSE OUBLIÉ ============
+if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - VERIFY EMAIL");
+    $passwordResetController->verifyEmail();
+    exit;
+}
+
+if ($path === '/api/forgot-password/verify-phone' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - VERIFY PHONE");
+    $passwordResetController->verifyPhone();
+    exit;
+}
+
+if ($path === '/api/forgot-password/reset' && $method === 'POST') {
+    error_log("→ Route: FORGOT PASSWORD - RESET");
+    $passwordResetController->resetPassword();
+    exit;
+}
 error_log("===================");
 error_log("📨 $method $path");
 error_log("Session ID: " . session_id());
