@@ -63,12 +63,13 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
   }, []);
 
   useEffect(() => {
-    if (userRole === 'manager') {
-      fetch('http://localhost:8000/api/notifications', { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => setNotifications(Array.isArray(data) ? data : []))
-        .catch(() => {});
-    }
+    fetch('http://localhost:8000/api/notifications', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        const list = Array.isArray(data?.notifications) ? data.notifications : (Array.isArray(data) ? data : []);
+        setNotifications(list);
+      })
+      .catch(() => {});
   }, [userRole]);
 
   const handleLogout = () => {
@@ -145,7 +146,7 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
           {/* Actions */}
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             {/* Notifications */}
-            {userRole === 'manager' && (
+            {(userRole === 'manager' || userRole === 'employe') && (
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
@@ -191,7 +192,7 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
                           >
                             <p className="text-sm text-gray-900 font-medium">{notif.message}</p>
                             <p className="text-xs text-gray-500 mt-1">
-                              {new Date(notif.created_at).toLocaleDateString('fr-FR')}
+                              {notif.created_at ? new Date(notif.created_at).toLocaleDateString('fr-FR') : ''}
                             </p>
                           </div>
                         ))}

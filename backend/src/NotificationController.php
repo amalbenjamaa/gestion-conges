@@ -10,6 +10,25 @@ class NotificationController
     public function __construct()
     {
         $this->pdo = Database::getPdo();
+        $this->ensureTable();
+    }
+
+    private function ensureTable()
+    {
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS notifications (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              utilisateur_id INT NOT NULL,
+              titre VARCHAR(200) NULL,
+              message TEXT NOT NULL,
+              type VARCHAR(20) DEFAULT 'info',
+              lu TINYINT(1) DEFAULT 0,
+              date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              INDEX (utilisateur_id),
+              INDEX (lu),
+              INDEX (date_creation)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
     }
 
     /**
@@ -44,28 +63,18 @@ class NotificationController
 
             $userId = $_SESSION['user_id'];
 
-            $sql = "
-                SELECT 
-                    id, 
-                    titre, 
-                    message, 
-                    type, 
-                    lu, 
-                    date_creation,
-                    DATE_FORMAT(date_creation, '%d/%m/%Y à %H:%i') as date_formatted
+            $stmt = $this->pdo->prepare("
+                SELECT id, message, lu AS is_read, date_creation AS created_at
                 FROM notifications
                 WHERE utilisateur_id = ?
                 ORDER BY date_creation DESC
                 LIMIT 50
-            ";
-            
-            $stmt = $this->pdo->prepare($sql);
+            ");
             $stmt->execute([$userId]);
             $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Compter les non lues
-            $sql = "SELECT COUNT(*) FROM notifications WHERE utilisateur_id = ? AND lu = 0";
-            $stmt = $this->pdo->prepare($sql);
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM notifications WHERE utilisateur_id = ? AND lu = 0");
             $stmt->execute([$userId]);
             $unreadCount = (int)$stmt->fetchColumn();
 

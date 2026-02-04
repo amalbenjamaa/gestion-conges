@@ -7,6 +7,7 @@ function Validation({ userEmail, userRole, onLogout }) {
   const [processing, setProcessing] = useState(null);
   const [refusMotif, setRefusMotif] = useState('');
   const [showRefusModal, setShowRefusModal] = useState(null);
+  const [feedback, setFeedback] = useState(null);
 
   const loadDemandes = () => {
     console.log('🔄 Chargement des demandes en attente...');
@@ -34,7 +35,7 @@ function Validation({ userEmail, userRole, onLogout }) {
 
   const handleValidation = (demandeId, statut) => {
     if (statut === 'refusee' && !refusMotif.trim()) {
-      alert('Veuillez indiquer un motif de refus');
+      setFeedback({ type: 'error', message: 'Veuillez indiquer un motif de refus' });
       return;
     }
 
@@ -58,14 +59,14 @@ function Validation({ userEmail, userRole, onLogout }) {
           setShowRefusModal(null);
           setRefusMotif('');
           loadDemandes();
-          alert(statut === 'validee' ? '✅ Demande validée !' : '❌ Demande refusée');
+          setFeedback({ type: 'success', message: statut === 'validee' ? 'Demande validée' : 'Demande refusée' });
         } else {
-          alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
+          setFeedback({ type: 'error', message: data.error || 'Erreur inconnue' });
         }
       })
       .catch(err => {
         console.error('❌ Erreur:', err);
-        alert('❌ Erreur lors du traitement');
+        setFeedback({ type: 'error', message: 'Erreur lors du traitement' });
       })
       .finally(() => {
         setProcessing(null);
@@ -92,6 +93,23 @@ function Validation({ userEmail, userRole, onLogout }) {
             {demandes.length} demande{demandes.length > 1 ? 's' : ''} en attente
           </p>
         </div>
+        {feedback && (
+          <div className={`rounded-2xl shadow-lg p-4 flex items-start gap-3 ${feedback.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${feedback.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {feedback.type === 'success' ? '✅' : '❌'}
+            </div>
+            <div className="flex-1">
+              <p className={`font-semibold ${feedback.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>{feedback.message}</p>
+              <p className="text-xs text-gray-500 mt-1">Action effectuée</p>
+            </div>
+            <button
+              onClick={() => setFeedback(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✖
+            </button>
+          </div>
+        )}
 
         {demandes.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-xl p-12 text-center">

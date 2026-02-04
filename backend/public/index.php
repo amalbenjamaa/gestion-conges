@@ -58,9 +58,15 @@ if ($method === 'POST' && $path === '/api/users') {
     exit;
 }
 
-// Dummy notifications endpoint (évite 404 console)
-if ($method === 'GET' && $path === '/api/notifications') {
-    echo json_encode([]);
+// ============ NOTIFICATIONS ============
+if ($path === '/api/notifications' && $method === 'GET') {
+    $notifController = new NotificationController();
+    $notifController->listMine();
+    exit;
+}
+if ($path === '/api/notifications/mark-read' && $method === 'POST') {
+    $notifController = new NotificationController();
+    $notifController->markAllRead();
     exit;
 }
 

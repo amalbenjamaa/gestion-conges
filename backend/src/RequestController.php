@@ -170,7 +170,25 @@ class RequestController
         $requestId = $this->pdo->lastInsertId();
         
         error_log("✅ Demande créée avec succès: #$requestId");
-        
+
+        // Notifications: informer tous les managers
+        try {
+            require_once __DIR__ . '/NotificationController.php';
+            $notif = new NotificationController();
+            $stmtManagers = $this->pdo->query("SELECT id FROM utilisateurs WHERE role_id = 2");
+            $managers = $stmtManagers->fetchAll(PDO::FETCH_COLUMN);
+            $stmtUser = $this->pdo->prepare("SELECT nom_complet FROM utilisateurs WHERE id = ?");
+            $stmtUser->execute([$userId]);
+            $userName = $stmtUser->fetchColumn() ?: 'Un employé';
+            $titre = 'Nouvelle demande';
+            $message = "$userName a soumis une demande du {$data['date_debut']} au {$data['date_fin']}";
+            foreach ($managers as $mid) {
+                $notif->create((int)$mid, $titre, $message, 'info');
+            }
+        } catch (Exception $e) {
+            error_log("❌ Erreur notification création demande: " . $e->getMessage());
+        }
+
         respondJson(['success' => true, 'id' => $requestId, 'message' => 'Demande créée avec succès']);
         
     } catch (Exception $e) {
@@ -238,6 +256,18 @@ class RequestController
                 $updateSolde->execute([$nbJours, $userId]);
                 
                 error_log("✅ Solde mis à jour pour user $userId : +$nbJours jours");
+            }
+            
+            // Notifications: informer l'employé
+            try {
+                require_once __DIR__ . '/NotificationController.php';
+                $notif = new NotificationController();
+                $titre = 'Demande traitée';
+                $msgStatus = $newStatus === 'validee' ? 'acceptée' : 'refusée';
+                $message = "Votre demande (#$requestId) a été $msgStatus.";
+                $notif->create((int)$demande['utilisateur_id'], $titre, $message, $newStatus === 'validee' ? 'success' : 'warning');
+            } catch (Exception $e) {
+                error_log("❌ Erreur notification updateStatus: " . $e->getMessage());
             }
             
             respondJson([
