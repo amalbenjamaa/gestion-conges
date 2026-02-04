@@ -5,7 +5,7 @@ require_once __DIR__ . '/Helpers.php';
 
 class NotificationController
 {
-    private PDO $pdo;
+    private $pdo;
 
     public function __construct()
     {
@@ -15,18 +15,13 @@ class NotificationController
     /**
      * Créer une notification
      */
-    public function create(int $userId, string $titre, string $message, string $type = 'info'): bool
+    public function create($userId, $titre, $message, $type = 'info')
     {
         try {
             $sql = "INSERT INTO notifications (utilisateur_id, titre, message, type, lu, date_creation) 
-                    VALUES (:user_id, :titre, :message, :type, 0, NOW())";
+                    VALUES (?, ?, ?, ?, 0, NOW())";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                'user_id' => $userId,
-                'titre' => $titre,
-                'message' => $message,
-                'type' => $type
-            ]);
+            $stmt->execute([$userId, $titre, $message, $type]);
             
             error_log("✅ Notification créée pour user $userId: $titre");
             return true;
@@ -39,14 +34,15 @@ class NotificationController
     /**
      * Lister mes notifications
      */
-    public function listMine(): void
+    public function listMine()
     {
         try {
-            $user = getAuthenticatedUser();
-            if (!$user) {
+            if (!isset($_SESSION['user_id'])) {
                 respondJson(['error' => 'Non authentifié'], 401);
                 return;
             }
+
+            $userId = $_SESSION['user_id'];
 
             $sql = "
                 SELECT 
@@ -58,19 +54,19 @@ class NotificationController
                     date_creation,
                     DATE_FORMAT(date_creation, '%d/%m/%Y à %H:%i') as date_formatted
                 FROM notifications
-                WHERE utilisateur_id = :user_id
+                WHERE utilisateur_id = ?
                 ORDER BY date_creation DESC
                 LIMIT 50
             ";
             
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute(['user_id' => $user['id']]);
+            $stmt->execute([$userId]);
             $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Compter les non lues
-            $sql = "SELECT COUNT(*) FROM notifications WHERE utilisateur_id = :user_id AND lu = 0";
+            $sql = "SELECT COUNT(*) FROM notifications WHERE utilisateur_id = ? AND lu = 0";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute(['user_id' => $user['id']]);
+            $stmt->execute([$userId]);
             $unreadCount = (int)$stmt->fetchColumn();
 
             respondJson([
@@ -87,21 +83,19 @@ class NotificationController
     /**
      * Marquer comme lue
      */
-    public function markAsRead(int $notificationId): void
+    public function markAsRead($notificationId)
     {
         try {
-            $user = getAuthenticatedUser();
-            if (!$user) {
+            if (!isset($_SESSION['user_id'])) {
                 respondJson(['error' => 'Non authentifié'], 401);
                 return;
             }
 
-            $sql = "UPDATE notifications SET lu = 1 WHERE id = :id AND utilisateur_id = :user_id";
+            $userId = $_SESSION['user_id'];
+
+            $sql = "UPDATE notifications SET lu = 1 WHERE id = ? AND utilisateur_id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                'id' => $notificationId,
-                'user_id' => $user['id']
-            ]);
+            $stmt->execute([$notificationId, $userId]);
 
             respondJson(['success' => true]);
             
@@ -114,18 +108,19 @@ class NotificationController
     /**
      * Marquer toutes comme lues
      */
-    public function markAllRead(): void
+    public function markAllRead()
     {
         try {
-            $user = getAuthenticatedUser();
-            if (!$user) {
+            if (!isset($_SESSION['user_id'])) {
                 respondJson(['error' => 'Non authentifié'], 401);
                 return;
             }
 
-            $sql = "UPDATE notifications SET lu = 1 WHERE utilisateur_id = :user_id AND lu = 0";
+            $userId = $_SESSION['user_id'];
+
+            $sql = "UPDATE notifications SET lu = 1 WHERE utilisateur_id = ? AND lu = 0";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute(['user_id' => $user['id']]);
+            $stmt->execute([$userId]);
 
             $count = $stmt->rowCount();
             
@@ -143,21 +138,19 @@ class NotificationController
     /**
      * Supprimer une notification
      */
-    public function delete(int $notificationId): void
+    public function delete($notificationId)
     {
         try {
-            $user = getAuthenticatedUser();
-            if (!$user) {
+            if (!isset($_SESSION['user_id'])) {
                 respondJson(['error' => 'Non authentifié'], 401);
                 return;
             }
 
-            $sql = "DELETE FROM notifications WHERE id = :id AND utilisateur_id = :user_id";
+            $userId = $_SESSION['user_id'];
+
+            $sql = "DELETE FROM notifications WHERE id = ? AND utilisateur_id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                'id' => $notificationId,
-                'user_id' => $user['id']
-            ]);
+            $stmt->execute([$notificationId, $userId]);
 
             respondJson(['success' => true]);
             

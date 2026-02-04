@@ -68,38 +68,65 @@ class AuthController {
 
     // GET /api/me
     public function me() {
-        if (empty($_SESSION['user_id'])) {
+    try {
+        error_log("=== ME REQUEST ===");
+        
+        if (!isset($_SESSION['user_id'])) {
+            error_log("❌ Non authentifié");
             respondJson(['error' => 'Non authentifié'], 401);
+            return;
         }
-        $userId = (int)$_SESSION['user_id'];
-        $stmt = $this->pdo->prepare("
-            SELECT u.id, u.nom_complet, u.email, u.position, u.avatar_url, u.solde_total, u.solde_consomme, r.nom AS role
-            FROM utilisateurs u
-            JOIN roles r ON r.id = u.role_id
-            WHERE u.id = ?
-            LIMIT 1
-        ");
+        
+        $userId = $_SESSION['user_id'];
+        error_log("User ID: $userId");
+        error_log("Role ID in session: " . ($_SESSION['role_id'] ?? 'NON DÉFINI'));
+        
+        // ✅ Récupérer les soldes aussi
+        $sql = "SELECT 
+                    id, 
+                    email, 
+                    nom_complet, 
+                    role_id,
+                    solde_total,
+                    solde_consomme,
+                    (solde_total - solde_consomme) as solde_restant,
+                    avatar_url,
+                    position
+                FROM utilisateurs 
+                WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$userId]);
-        $u = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$u) {
-            respondJson(['error' => 'Utilisateur introuvable'], 404);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user) {
+            error_log("❌ Utilisateur non trouvé");
+            respondJson(['error' => 'Utilisateur non trouvé'], 404);
+            return;
         }
-        $soldeTotal = (int)$u['solde_total'];
-        $soldeConsomme = (int)$u['solde_consomme'];
-        $soldeRestant = max(0, $soldeTotal - $soldeConsomme);
-
+        
+        // ✅ Mettre à jour la session
+        $_SESSION['role_id'] = $user['role_id'];
+        
+        error_log("✅ User trouvé: {$user['email']}, Role ID: {$user['role_id']}");
+        
         respondJson([
-            'id' => (int)$u['id'],
-            'email' => $u['email'],
-            'role' => $u['role'],
-            'nom_complet' => $u['nom_complet'],
-            'position' => $u['position'],
-            'avatar_url' => $u['avatar_url'],
-            'solde_total' => $soldeTotal,
-            'solde_consomme' => $soldeConsomme,
-            'solde_restant' => $soldeRestant,
+            'id' => $user['id'],
+            'email' => $user['email'],
+            'nom_complet' => $user['nom_complet'],
+            'role_id' => $user['role_id'],
+            'role' => $user['role_id'] == 2 ? 'manager' : 'employe',
+            'solde_total' => (int)$user['solde_total'],
+            'solde_consomme' => (int)$user['solde_consomme'],
+            'solde_restant' => (int)$user['solde_restant'],
+            'avatar_url' => $user['avatar_url'],
+            'position' => $user['position']
         ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ Erreur me: " . $e->getMessage());
+        respondJson(['error' => 'Erreur serveur'], 500);
     }
+}
 
     // POST /api/me/avatar (multipart/form-data: avatar=file)
     public function uploadAvatar(): void {

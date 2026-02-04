@@ -5,7 +5,7 @@ require_once __DIR__ . '/Helpers.php';
 
 class RequestController
 {
-    private PDO $pdo;
+    private $pdo;
 
     public function __construct()
     {
@@ -13,7 +13,7 @@ class RequestController
     }
 
     // ✅ Demandes EN ATTENTE (pour validation)
-    public function getPendingRequests(): void
+    public function getPendingRequests()
     {
         try {
             error_log("=== GET PENDING REQUESTS ===");
@@ -49,7 +49,7 @@ class RequestController
     }
 
     // ✅ Demandes RÉCENTES (7 derniers jours)
-    public function getRecentRequests(): void
+    public function getRecentRequests()
     {
         try {
             error_log("=== GET RECENT REQUESTS ===");
@@ -86,121 +86,164 @@ class RequestController
     }
 
     // ✅ MES demandes (pour employés)
-    public function getMyRequests(): void
-    {
-        try {
-            if (!isset($_SESSION['user_id'])) {
-                respondJson(['error' => 'Non authentifié'], 401);
-                return;
-            }
-
-            $userId = $_SESSION['user_id'];
-            
-            error_log("=== GET MY REQUESTS ===");
-            error_log("User ID: $userId");
-
-            $sql = "
-                SELECT 
-                    d.*,
-                    DATE_FORMAT(d.date_debut, '%d/%m/%Y') as date_debut_formatted,
-                    DATE_FORMAT(d.date_fin, '%d/%m/%Y') as date_fin_formatted,
-                    DATE_FORMAT(d.date_demande, '%d/%m/%Y à %H:%i') as date_demande_formatted,
-                    tc.nom as type_conge,
-                    tc.couleur as type_couleur
-                FROM demandes d
-                LEFT JOIN types_conges tc ON d.type_id = tc.id
-                WHERE d.utilisateur_id = ?
-                ORDER BY d.date_demande DESC
-            ";
-            
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$userId]);
-            $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            error_log("✅ Mes demandes: " . count($requests));
-            
-            respondJson(['requests' => $requests]);
-            
-        } catch (Exception $e) {
-            error_log("❌ Erreur getMyRequests: " . $e->getMessage());
-            respondJson(['error' => 'Erreur serveur'], 500);
+   public function getMyRequests()
+{
+    try {
+        if (!isset($_SESSION['user_id'])) {
+            respondJson(['error' => 'Non authentifié'], 401);
+            return;
         }
+
+        $userId = $_SESSION['user_id'];
+        
+        error_log("=== GET MY REQUESTS ===");
+        error_log("User ID: $userId");
+
+        // ✅ Pas de filtre WHERE statut = ... pour avoir TOUTES les demandes
+        $sql = "
+            SELECT 
+                d.*,
+                DATE_FORMAT(d.date_debut, '%d/%m/%Y') as date_debut_formatted,
+                DATE_FORMAT(d.date_fin, '%d/%m/%Y') as date_fin_formatted,
+                DATE_FORMAT(d.date_demande, '%d/%m/%Y à %H:%i') as date_demande_formatted,
+                tc.nom as type_conge,
+                tc.couleur as type_couleur
+            FROM demandes d
+            LEFT JOIN types_conges tc ON d.type_id = tc.id
+            WHERE d.utilisateur_id = ?
+            ORDER BY d.date_demande DESC
+        ";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("✅ Mes demandes: " . count($requests));
+        
+        respondJson(['requests' => $requests]);
+        
+    } catch (Exception $e) {
+        error_log("❌ Erreur getMyRequests: " . $e->getMessage());
+        respondJson(['error' => 'Erreur serveur'], 500);
     }
+}
 
     // ✅ Créer une demande
-    public function createRequest(array $data): void
-    {
-        try {
-            if (!isset($_SESSION['user_id'])) {
-                respondJson(['error' => 'Non authentifié'], 401);
-                return;
-            }
-
-            $userId = $_SESSION['user_id'];
-            
-            error_log("=== CREATE REQUEST ===");
-            error_log("User ID: $userId");
-            error_log("Data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
-
-            $sql = "
-                INSERT INTO demandes (utilisateur_id, type_id, date_debut, date_fin, motif, nb_jours, statut, date_demande)
-                VALUES (:user_id, :type_id, :date_debut, :date_fin, :motif, :nb_jours, 'en_attente', NOW())
-            ";
-            
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                'user_id' => $userId,
-                'type_id' => $data['type_id'],
-                'date_debut' => $data['date_debut'],
-                'date_fin' => $data['date_fin'],
-                'motif' => $data['motif'] ?? '',
-                'nb_jours' => $data['nb_jours']
-            ]);
-            
-            $requestId = $this->pdo->lastInsertId();
-            
-            error_log("✅ Demande créée: #$requestId");
-            
-            respondJson(['success' => true, 'id' => $requestId]);
-            
-        } catch (Exception $e) {
-            error_log("❌ Erreur createRequest: " . $e->getMessage());
-            respondJson(['error' => 'Erreur serveur'], 500);
+    public function createRequest($data)
+{
+    try {
+        if (!isset($_SESSION['user_id'])) {
+            respondJson(['error' => 'Non authentifié'], 401);
+            return;
         }
-    }
 
+        $userId = $_SESSION['user_id'];
+        
+        error_log("=== CREATE REQUEST ===");
+        error_log("User ID: $userId");
+        error_log("Data reçu: " . json_encode($data, JSON_UNESCAPED_UNICODE));
+
+        // ✅ Calculer nb_jours si absent ou vide
+        if (!isset($data['nb_jours']) || empty($data['nb_jours'])) {
+            $dateDebut = new DateTime($data['date_debut']);
+            $dateFin = new DateTime($data['date_fin']);
+            $interval = $dateDebut->diff($dateFin);
+            $data['nb_jours'] = $interval->days + 1; // +1 pour inclure le dernier jour
+            error_log("✅ nb_jours calculé automatiquement: {$data['nb_jours']}");
+        }
+
+        $sql = "
+            INSERT INTO demandes (utilisateur_id, type_id, date_debut, date_fin, motif, nb_jours, statut, date_demande)
+            VALUES (?, ?, ?, ?, ?, ?, 'en_attente', NOW())
+        ";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            $userId,
+            $data['type_id'],
+            $data['date_debut'],
+            $data['date_fin'],
+            $data['motif'] ?? '',
+            $data['nb_jours']
+        ]);
+        
+        $requestId = $this->pdo->lastInsertId();
+        
+        error_log("✅ Demande créée avec succès: #$requestId");
+        
+        respondJson(['success' => true, 'id' => $requestId, 'message' => 'Demande créée avec succès']);
+        
+    } catch (Exception $e) {
+        error_log("❌ Erreur createRequest: " . $e->getMessage());
+        error_log("❌ Stack trace: " . $e->getTraceAsString());
+        respondJson(['error' => 'Erreur serveur', 'details' => $e->getMessage()], 500);
+    }
+}
     // ✅ Valider/Refuser une demande
-    public function updateStatus(int $requestId, string $status, ?string $comment): void
+    public function updateStatus($requestId, $newStatus, $comment = null)
     {
         try {
-            if (!isset($_SESSION['user_id'])) {
-                respondJson(['error' => 'Non authentifié'], 401);
-                return;
-            }
-
             error_log("=== UPDATE STATUS ===");
             error_log("Request ID: $requestId");
-            error_log("Status: $status");
-            error_log("Comment: $comment");
-
-            $sql = "
-                UPDATE demandes 
-                SET statut = :status,
-                    handle_comment = :comment,
-                    handle_date = NOW()
-                WHERE id = :id
-            ";
+            error_log("Status: $newStatus");
+            error_log("Comment: " . ($comment ?? 'aucun'));
             
+            if (!isset($_SESSION['user_id'])) {
+                error_log("❌ Non authentifié");
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
+            
+            if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 2) {
+                error_log("❌ Non autorisé - Role: " . ($_SESSION['role_id'] ?? 'aucun'));
+                respondJson(['error' => 'Seul un manager peut valider/refuser'], 403);
+                return;
+            }
+            
+            // Récupérer la demande
+            $stmt = $this->pdo->prepare("SELECT * FROM demandes WHERE id = ?");
+            $stmt->execute([$requestId]);
+            $demande = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$demande) {
+                error_log("❌ Demande non trouvée");
+                respondJson(['error' => 'Demande non trouvée'], 404);
+                return;
+            }
+            
+            error_log("✅ Demande trouvée: ID {$demande['id']}, User {$demande['utilisateur_id']}");
+            
+            // ✅ CORRECTION : Mise à jour SANS commentaire_manager
+            $sql = "UPDATE demandes SET statut = ?, date_traitement = NOW() WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                'status' => $status,
-                'comment' => $comment,
-                'id' => $requestId
+            $stmt->execute([$newStatus, $requestId]);
+            
+            error_log("✅ Demande #$requestId mise à jour : $newStatus");
+            
+            // Sauvegarder le commentaire dans les logs
+            if ($comment) {
+                error_log("💬 Commentaire manager: $comment");
+            }
+            
+            // Si validée, mettre à jour le solde
+            if ($newStatus === 'validee') {
+                $userId = $demande['utilisateur_id'];
+                $nbJours = $demande['nb_jours'];
+                
+                $updateSolde = $this->pdo->prepare("
+                    UPDATE utilisateurs 
+                    SET solde_consomme = solde_consomme + ? 
+                    WHERE id = ?
+                ");
+                $updateSolde->execute([$nbJours, $userId]);
+                
+                error_log("✅ Solde mis à jour pour user $userId : +$nbJours jours");
+            }
+            
+            respondJson([
+                'success' => true,
+                'message' => $newStatus === 'validee' ? 'Demande validée' : 'Demande refusée'
             ]);
-            
-            error_log("✅ Statut mis à jour");
-            
-            respondJson(['success' => true]);
             
         } catch (Exception $e) {
             error_log("❌ Erreur updateStatus: " . $e->getMessage());
