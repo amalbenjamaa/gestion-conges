@@ -93,6 +93,34 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!selectedEmploye) return;
+    const confirm = window.confirm(`Supprimer définitivement l’employé "${selectedEmploye.nom}" ? Cette action est irréversible.`);
+    if (!confirm) return;
+
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`http://localhost:8000/api/employes/${selectedEmploye.id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de la suppression');
+      }
+      setSuccess('Employé supprimé avec succès');
+      // Retirer de la liste
+      setEmployes(prev => prev.filter(e => e.id !== selectedEmploye.id));
+      setSelectedEmploye(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="space-y-6">
@@ -255,6 +283,14 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
                     className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex-1"
                   >
                     {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="bg-red-600 text-white px-6 py-2.5 rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Supprimer l’employé
                   </button>
                   <button
                     type="button"

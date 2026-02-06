@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'DYNAMIX SERVICES - Gestion des Congés',
-        short_name: 'Gestion Congés',
+        name: 'moncongé',
+        short_name: 'moncongé',
         description: 'Application de gestion des demandes de congés',
         theme_color: '#1e293b',
         background_color: '#ffffff',

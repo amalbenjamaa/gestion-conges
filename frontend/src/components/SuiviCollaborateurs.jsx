@@ -47,12 +47,15 @@ function SuiviCollaborateurs() {
     // Écouter les mises à jour de demandes
     const handleUpdate = () => setTimeout(() => loadCollaborateurs(), 0);
     const handleUserCreated = () => setTimeout(() => loadCollaborateurs(), 0);
+    const handleUserDeleted = () => setTimeout(() => loadCollaborateurs(), 0);
     window.addEventListener('demandeUpdated', handleUpdate);
     window.addEventListener('userCreated', handleUserCreated);
+    window.addEventListener('userDeleted', handleUserDeleted);
     
     return () => {
       window.removeEventListener('demandeUpdated', handleUpdate);
       window.removeEventListener('userCreated', handleUserCreated);
+      window.removeEventListener('userDeleted', handleUserDeleted);
     };
   }, []);
 
@@ -228,4 +231,3 @@ function SuiviCollaborateurs() {
 }
 
 export default SuiviCollaborateurs;
-

@@ -12,6 +12,44 @@ class RequestController
         $this->pdo = Database::getPdo();
     }
 
+    // ✅ Lister les demandes (filtrage par employé pour vue manager)
+    public function listRequests(array $query = [])
+    {
+        try {
+            if (!isset($_SESSION['user_id'])) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
+            // Seuls les managers peuvent consulter l'historique d'un employé
+            if (!isset($_SESSION['role_id']) || (int)$_SESSION['role_id'] !== 2) {
+                respondJson(['error' => 'Non autorisé'], 403);
+                return;
+            }
+
+            $sql = "
+                SELECT 
+                    d.*,
+                    tc.nom AS type_name
+                FROM demandes d
+                LEFT JOIN types_conges tc ON tc.id = d.type_id
+            ";
+            $params = [];
+            if (!empty($query['user_id'])) {
+                $sql .= " WHERE d.utilisateur_id = ? ";
+                $params[] = (int)$query['user_id'];
+            }
+            $sql .= " ORDER BY d.date_demande DESC";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            respondJson($rows);
+        } catch (Exception $e) {
+            error_log("❌ Erreur listRequests: " . $e->getMessage());
+            respondJson(['error' => 'Erreur serveur'], 500);
+        }
+    }
+
     // ✅ Demandes EN ATTENTE (pour validation)
     public function getPendingRequests()
     {

@@ -105,6 +105,16 @@ function App() {
           }
         />
         <Route
+          path="/employe/:id"
+          element={
+            userEmail && userRole === 'manager' ? (
+              <EmployeDetails userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
           path="/nouvelle-demande"
           element={
             userEmail ? (

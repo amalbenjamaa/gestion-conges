@@ -232,7 +232,7 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                       key={emp.id} 
                       onClick={() => {
                         console.log('👆 Clic sur employé:', emp.id);
-                        navigate(`/employe/${emp.id}`);
+                        navigate(`/employes/${emp.id}`);
                       }}
                       className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 hover:shadow-lg transition-all cursor-pointer"
                     >
@@ -252,7 +252,13 @@ function Dashboard({ userEmail, userRole, onLogout }) {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-blue-600">
-                          {emp.solde_restant || 0} jours
+                          {(() => {
+                            const total = Number(emp.solde_total ?? emp.quota_annuel ?? 0);
+                            const cons = Number(emp.solde_consomme ?? emp.consomme ?? 0);
+                            const rest = Number(emp.solde_restant ?? (total - cons));
+                            const val = Math.max(0, isNaN(rest) ? (total - cons) : rest);
+                            return `${val} jours`;
+                          })()}
                         </p>
                         <p className="text-xs text-gray-500">restants</p>
                         {emp.est_en_conge && (

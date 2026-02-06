@@ -1,5 +1,8 @@
 <?php
-header('Access-Control-Allow-Origin: http://localhost:5173');
+// Autoriser localhost:5173 et 4173 en dev
+$origin = $_SERVER['HTTP_ORIGIN'] ?? 'http://localhost:4173';
+$allowed = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173', 'http://127.0.0.1:4173'];
+header('Access-Control-Allow-Origin: ' . (in_array($origin, $allowed, true) ? $origin : 'http://localhost:4173'));
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -160,6 +163,12 @@ if ($path === '/api/employes' && $method === 'GET') {
     $userController->getEmployes();
     exit;
 }
+// Alias pour compatibilité: /api/collaborateurs -> /api/employes
+if ($path === '/api/collaborateurs' && $method === 'GET') {
+    error_log("→ Alias: COLLABORATEURS -> EMPLOYES");
+    $userController->getEmployes();
+    exit;
+}
 
 // ============ DEMANDES ============
 if ($path === '/api/requests/recent' && $method === 'GET') {
@@ -173,8 +182,13 @@ if ($path === '/api/my-requests' && $method === 'GET') {
     exit;
 }
 if ($path === '/api/requests' && $method === 'GET') {
-    error_log("→ Route: REQUESTS");
-    $requestController->getPendingRequests();
+    error_log("→ Route: REQUESTS (list)");
+    // Si un user_id est fourni, lister ses demandes (vue manager)
+    if (isset($_GET['user_id'])) {
+        $requestController->listRequests($_GET);
+    } else {
+        $requestController->getPendingRequests();
+    }
     exit;
 }
 if ($path === '/api/requests' && $method === 'POST') {

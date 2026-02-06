@@ -146,8 +146,7 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
           {/* Actions */}
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             {/* Notifications */}
-            {(userRole === 'manager' || userRole === 'employe') && (
-              <div className="relative">
+            <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors"
@@ -201,7 +200,6 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
                   </div>
                 )}
               </div>
-            )}
 
             {/* Avatar */}
             <div 
