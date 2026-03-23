@@ -24,6 +24,7 @@ require_once __DIR__ . '/../src/RequestController.php';
 require_once __DIR__ . '/../src/StatsController.php';
 require_once __DIR__ . '/../src/UserController.php';
 require_once __DIR__ . '/../src/PasswordResetController.php';
+require_once __DIR__ . '/../src/AiController.php';
 
 // Parse la requête
 $requestUri = $_SERVER['REQUEST_URI'];
@@ -32,11 +33,25 @@ $path = parse_url($requestUri, PHP_URL_PATH);
 // --- Correction importante : lire le body si besoin
 $body = json_decode(file_get_contents('php://input'), true);
 
-$passwordResetController = new PasswordResetController();
-$auth = new AuthController();
-$requestController = new RequestController();
-$statsController = new StatsController();
-$userController = new UserController();
+$passwordResetController = null;
+$auth = null;
+$requestController = null;
+$statsController = null;
+$userController = null;
+
+// Instanciation des contrôleurs : certains constructeurs connectent la DB via PDO.
+// Si la DB est indisponible (ou identifiants incorrects), on doit renvoyer du JSON
+// plutôt qu’une page HTML Xdebug.
+try {
+    $passwordResetController = new PasswordResetController();
+    $auth = new AuthController();
+    $requestController = new RequestController();
+    $statsController = new StatsController();
+    $userController = new UserController();
+} catch (Throwable $e) {
+    error_log("❌ Erreur connexion base de données: " . $e->getMessage());
+    respondJson(['error' => 'Erreur serveur: base de données indisponible'], 500);
+}
 
 // ============ MOT DE PASSE OUBLIÉ ============
 if ($path === '/api/forgot-password/verify-email' && $method === 'POST') {
@@ -231,6 +246,14 @@ if ($path === '/api/calendar/all' && $method === 'GET') {
 if ($path === '/api/calendar' && $method === 'GET') {
     error_log("→ Route: CALENDAR");
     $userController->getCalendarEvents();
+    exit;
+}
+
+// ============ AI CHATBOT ============
+if ($path === '/api/ai/chat' && $method === 'POST') {
+    error_log("→ Route: AI CHAT");
+    $aiController = new AiController();
+    $aiController->chat($body ?? []);
     exit;
 }
 

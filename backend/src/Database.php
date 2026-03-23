@@ -9,7 +9,7 @@ class Database {
         $host = $cfg['DB_HOST'] ?? '127.0.0.1';
         $db   = $cfg['DB_NAME'] ?? 'gestion_conges';
         $user = $cfg['DB_USER'] ?? 'root';
-        $pass = $cfg['DB_PASS'] ?? '';
+        $pass = $cfg['DB_PASS'] ?? 'root';
         $port = $cfg['DB_PORT'] ?? 3306;
         $dsn = "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4";
         $opts = [

@@ -63,6 +63,15 @@ function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
     try {
       const dataToSend = { ...formData };
       delete dataToSend.password_confirm; // Ne pas envoyer la confirmation
+      // Mapper quota_annuel -> solde_total attendu par l'API
+      dataToSend.solde_total = parseInt(formData.quota_annuel || '0', 10);
+      if (isNaN(dataToSend.solde_total) || dataToSend.solde_total < 0) {
+        dataToSend.solde_total = 0;
+      }
+      // Garantir solde_consomme = 0 à la création
+      dataToSend.solde_consomme = 0;
+      // Nettoyage: ne pas envoyer quota_annuel qui n'est pas lu côté API
+      delete dataToSend.quota_annuel;
 
       const res = await fetch('http://localhost:8000/api/users', {
         method: 'POST',

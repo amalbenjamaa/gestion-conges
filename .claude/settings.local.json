@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx vite)",
+      "Bash(chmod:*)",
+      "Bash(node node_modules/vite/bin/vite.js:*)",
+      "Bash(npm install:*)",
+      "Bash(fuser:*)",
+      "Bash(curl:*)",
+      "Bash(mysql:*)"
+    ]
+  }
+}

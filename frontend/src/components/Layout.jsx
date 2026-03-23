@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import AiChatbot from './AiChatbot';
 
 function Layout({ children, userEmail, userRole, onLogout }) {
   const navigate = useNavigate();
@@ -15,16 +16,16 @@ function Layout({ children, userEmail, userRole, onLogout }) {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <Sidebar 
-        userRole={userRole} 
+      <Sidebar
+        userRole={userRole}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      
+
       {/* Contenu principal */}
       <div className="flex-1 lg:ml-64 bg-gray-50">
-        <Header 
-          userEmail={userEmail} 
+        <Header
+          userEmail={userEmail}
           userRole={userRole}
           onLogout={handleLogout}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -33,6 +34,9 @@ function Layout({ children, userEmail, userRole, onLogout }) {
           {children}
         </main>
       </div>
+
+      {/* AI Chatbot */}
+      <AiChatbot />
     </div>
   );
 }
