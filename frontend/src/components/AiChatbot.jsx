@@ -1,17 +1,70 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../apiBase.js';
 
-function AiChatbot() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
+const chatStorageKey = (uid) => `gestion-conges-ai-chat:${uid || 'anon'}`;
+const chatOpenStorageKey = (uid) => `gestion-conges-ai-chat-open:${uid || 'anon'}`;
+
+function defaultGreeting() {
+  return [
     {
       role: 'assistant',
       content: 'Bonjour ! Je suis votre assistant RH. Comment puis-je vous aider ?',
     },
-  ]);
+  ];
+}
+
+function loadMessagesFromStorage() {
+  try {
+    const uid = sessionStorage.getItem('userId') || 'anon';
+    const raw = sessionStorage.getItem(chatStorageKey(uid));
+    if (!raw) return defaultGreeting();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return defaultGreeting();
+    const ok = parsed.every(
+      (m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+    );
+    return ok ? parsed : defaultGreeting();
+  } catch {
+    return defaultGreeting();
+  }
+}
+
+function loadOpenFromStorage() {
+  try {
+    const uid = sessionStorage.getItem('userId') || 'anon';
+    return sessionStorage.getItem(chatOpenStorageKey(uid)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function AiChatbot() {
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(loadOpenFromStorage);
+  const [messages, setMessages] = useState(loadMessagesFromStorage);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const uid = sessionStorage.getItem('userId') || 'anon';
+      sessionStorage.setItem(chatStorageKey(uid), JSON.stringify(messages));
+    } catch {
+      /* quota / mode privé */
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      const uid = sessionStorage.getItem('userId') || 'anon';
+      sessionStorage.setItem(chatOpenStorageKey(uid), isOpen ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,7 +93,7 @@ function AiChatbot() {
         .slice(1) // skip initial greeting
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const res = await fetch('http://localhost:8000/api/ai/chat', {
+      const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -49,11 +102,19 @@ function AiChatbot() {
 
       const data = await res.json();
 
-      if (data.answer) {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: data.answer },
-        ]);
+      const hasAnswer = data.answer != null && String(data.answer).trim() !== '';
+      const hasNav = data.navigate && typeof data.navigate === 'string';
+
+      if (hasAnswer || hasNav) {
+        if (hasNav) {
+          navigate(data.navigate);
+        }
+        if (hasAnswer) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: String(data.answer).trim() },
+          ]);
+        }
       } else {
         setMessages((prev) => [
           ...prev,

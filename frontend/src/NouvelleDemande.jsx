@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from './apiBase.js';
 
 function NouvelleDemande({ userEmail, userRole, onLogout, userId }) {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ function NouvelleDemande({ userEmail, userRole, onLogout, userId }) {
         setIsLoading(false);
         return;
       }
-      const res = await fetch('http://localhost:8000/api/requests', {
+      const res = await fetch(`${API_BASE_URL}/api/requests`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

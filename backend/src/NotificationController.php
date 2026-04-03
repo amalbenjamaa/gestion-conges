@@ -64,7 +64,7 @@ class NotificationController
             $userId = $_SESSION['user_id'];
 
             $stmt = $this->pdo->prepare("
-                SELECT id, message, lu AS is_read, date_creation AS created_at
+                SELECT id, titre, message, lu AS is_read, date_creation AS created_at, type
                 FROM notifications
                 WHERE utilisateur_id = ?
                 ORDER BY date_creation DESC
@@ -73,6 +73,11 @@ class NotificationController
             $stmt->execute([$userId]);
             $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            foreach ($notifications as &$n) {
+                $n['is_read'] = ((int)($n['is_read'] ?? 0)) === 1;
+            }
+            unset($n);
+
             // Compter les non lues
             $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM notifications WHERE utilisateur_id = ? AND lu = 0");
             $stmt->execute([$userId]);
@@ -80,7 +85,7 @@ class NotificationController
 
             respondJson([
                 'notifications' => $notifications,
-                'unread_count' => $unreadCount
+                'unread_count' => $unreadCount,
             ]);
             
         } catch (PDOException $e) {

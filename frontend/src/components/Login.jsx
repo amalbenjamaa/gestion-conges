@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import logoMonconge from '../assets/monconge-logo.png'; // ✅ AJOUTER CETTE LIGNE
+import { API_BASE_URL } from '../apiBase.js';
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ function Login({ onLogin }) {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/login', {
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

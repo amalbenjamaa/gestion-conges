@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../apiBase.js';
 
 function NouvelleDemande({ userEmail, userRole, onLogout }) {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ function NouvelleDemande({ userEmail, userRole, onLogout }) {
         date_fin: dateFin,
         motif: motif
       };
-      const res = await fetch('http://localhost:8000/api/requests', {
+      const res = await fetch(`${API_BASE_URL}/api/requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // important pour envoyer le cookie de session PHP

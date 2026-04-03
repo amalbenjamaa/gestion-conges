@@ -4,6 +4,7 @@ import moment from 'moment';
 import 'moment/locale/fr';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 moment.locale('fr');
 const localizer = momentLocalizer(moment);
@@ -58,8 +59,8 @@ function Calendrier({ userEmail, userRole, onLogout }) {
 
     // Manager = tous les événements, Employé = seulement les siens
     const apiUrl = userRole === 'manager' 
-      ? 'http://localhost:8000/api/calendar/all'
-      : 'http://localhost:8000/api/calendar';
+      ? `${API_BASE_URL}/api/calendar/all`
+      : `${API_BASE_URL}/api/calendar`;
 
     console.log('📡 API appelée:', apiUrl);
 

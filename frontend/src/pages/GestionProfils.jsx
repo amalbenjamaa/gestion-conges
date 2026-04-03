@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function GestionProfils({ userEmail, userRole, onLogout }) {
   const [employes, setEmployes] = useState([]);
@@ -18,7 +19,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/collaborateurs', {
+    fetch(`${API_BASE_URL}/api/collaborateurs`, {
       credentials: 'include'
     })
       .then(res => res.json())
@@ -54,7 +55,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
     setSuccess('');
 
     try {
-      const res = await fetch(`http://localhost:8000/api/employes/${selectedEmploye.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/employes/${selectedEmploye.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -70,7 +71,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
       setSuccess('Profil mis à jour avec succès !');
       
       // Recharger la liste des employés
-      const resList = await fetch('http://localhost:8000/api/collaborateurs', { credentials: 'include' });
+      const resList = await fetch(`${API_BASE_URL}/api/collaborateurs`, { credentials: 'include' });
       const listData = await resList.json();
       setEmployes(Array.isArray(listData) ? listData : []);
       
@@ -102,7 +103,7 @@ function GestionProfils({ userEmail, userRole, onLogout }) {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`http://localhost:8000/api/employes/${selectedEmploye.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/employes/${selectedEmploye.id}`, {
         method: 'DELETE',
         credentials: 'include'
       });

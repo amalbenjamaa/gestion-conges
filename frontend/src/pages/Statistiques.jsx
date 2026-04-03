@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 import { useNavigate } from 'react-router-dom';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -15,7 +16,7 @@ function Statistiques({ userEmail, userRole, onLogout }) {
   useEffect(() => {
     console.log('🔄 Chargement des statistiques...');
     
-    fetch('http://localhost:8000/api/stats', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/stats`, { credentials: 'include' })
       .then(res => {
         console.log('📡 Réponse API stats, status:', res.status);
         if (!res.ok) throw new Error('Erreur de chargement');

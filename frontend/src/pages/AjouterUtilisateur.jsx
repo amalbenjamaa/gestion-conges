@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
   const navigate = useNavigate();
@@ -73,7 +74,7 @@ function AjouterUtilisateur({ userEmail, userRole, onLogout }) {
       // Nettoyage: ne pas envoyer quota_annuel qui n'est pas lu côté API
       delete dataToSend.quota_annuel;
 
-      const res = await fetch('http://localhost:8000/api/users', {
+      const res = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

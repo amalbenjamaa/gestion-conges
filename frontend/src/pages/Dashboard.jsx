@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-
+import { API_BASE_URL } from '../apiBase.js';
 
 function Dashboard({ userEmail, userRole, onLogout }) {
   const navigate = useNavigate();
@@ -9,30 +9,12 @@ function Dashboard({ userEmail, userRole, onLogout }) {
   const [employes, setEmployes] = useState([]);
   const [demandesRecentes, setDemandesRecentes] = useState([]);
   const [loading, setLoading] = useState(true);
-<div className="flex items-center justify-between">
-  <div>
-    <h1 className="text-3xl font-bold text-gray-900 mb-2">Tableau de bord Manager</h1>
-    <p className="text-gray-600">Vue d'ensemble de l'activité</p>
-  </div>
 
-  <div className="flex items-center gap-3">
-    <Link
-      to="/ajouter-utilisateur"
-      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 transition"
-    >
-      {/* Icône + texte */}
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-      </svg>
-      Ajouter un utilisateur
-    </Link>
-  </div>
-</div>
   useEffect(() => {
     console.log('🔄 Chargement Dashboard Manager...');
     
     // Charger les stats
-    fetch('http://localhost:8000/api/stats', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/stats`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         console.log('📊 Stats:', data);
@@ -41,7 +23,7 @@ function Dashboard({ userEmail, userRole, onLogout }) {
       .catch(err => console.error('❌ Erreur stats:', err));
 
     // Charger les employés
-    fetch('http://localhost:8000/api/employes', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/employes`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         console.log('👥 Employés:', data);
@@ -50,7 +32,7 @@ function Dashboard({ userEmail, userRole, onLogout }) {
       .catch(err => console.error('❌ Erreur employés:', err));
 
     // Charger les demandes des 7 derniers jours (tous statuts)
-    fetch('http://localhost:8000/api/requests/recent', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/requests/recent`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         console.log('📋 Demandes 7j reçues:', data);
@@ -89,9 +71,20 @@ function Dashboard({ userEmail, userRole, onLogout }) {
     <Layout userEmail={userEmail} userRole={userRole} onLogout={onLogout}>
       <div className="space-y-6">
         {/* En-tête */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Tableau de bord Manager</h1>
-          <p className="text-gray-600">Vue d'ensemble de l'activité</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Tableau de bord Manager</h1>
+            <p className="text-gray-600">Vue d'ensemble de l'activité</p>
+          </div>
+          <Link
+            to="/ajouter-utilisateur"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 transition self-start"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Ajouter un utilisateur
+          </Link>
         </div>
 
         {/* Cartes statistiques */}

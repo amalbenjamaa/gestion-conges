@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function MesDemandes({ userEmail, userRole, onLogout }) {
   const [demandes, setDemandes] = useState([]);
@@ -14,7 +15,7 @@ function MesDemandes({ userEmail, userRole, onLogout }) {
     setLoading(true);
     console.log('🔄 Chargement de mes demandes...');
 
-    fetch('http://localhost:8000/api/my-requests', {
+    fetch(`${API_BASE_URL}/api/my-requests`, {
       credentials: 'include'
     })
       .then(res => {

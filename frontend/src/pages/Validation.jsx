@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function Validation({ userEmail, userRole, onLogout }) {
   const [demandes, setDemandes] = useState([]);
@@ -13,7 +14,7 @@ function Validation({ userEmail, userRole, onLogout }) {
     console.log('🔄 Chargement des demandes en attente...');
     setLoading(true);
     
-    fetch('http://localhost:8000/api/requests', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/requests`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         console.log('📋 Demandes reçues:', data);
@@ -42,7 +43,7 @@ function Validation({ userEmail, userRole, onLogout }) {
     setProcessing(demandeId);
     console.log(`🔄 ${statut === 'validee' ? 'Validation' : 'Refus'} de la demande #${demandeId}`);
 
-    fetch(`http://localhost:8000/api/requests/${demandeId}/status`, {
+    fetch(`${API_BASE_URL}/api/requests/${demandeId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -59,6 +60,7 @@ function Validation({ userEmail, userRole, onLogout }) {
           setShowRefusModal(null);
           setRefusMotif('');
           loadDemandes();
+          window.dispatchEvent(new CustomEvent('demandeStatusChanged'));
           setFeedback({ type: 'success', message: statut === 'validee' ? 'Demande validée' : 'Demande refusée' });
         } else {
           setFeedback({ type: 'error', message: data.error || 'Erreur inconnue' });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../apiBase.js';
 
 function MotDePasseOublie() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function MotDePasseOublie() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/forgot-password/verify-email', {
+      const res = await fetch(`${API_BASE_URL}/api/forgot-password/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -62,7 +63,7 @@ function MotDePasseOublie() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/forgot-password/verify-phone', {
+      const res = await fetch(`${API_BASE_URL}/api/forgot-password/verify-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, phone, code })
@@ -103,7 +104,7 @@ function MotDePasseOublie() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/forgot-password/reset', {
+      const res = await fetch(`${API_BASE_URL}/api/forgot-password/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reset_token: resetToken, new_password: newPassword })

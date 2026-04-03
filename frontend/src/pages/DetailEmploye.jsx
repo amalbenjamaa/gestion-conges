@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function DetailEmploye({ userEmail, userRole, onLogout }) {
     console.log('🔑 DetailEmploye - Props:', { userEmail, userRole });
@@ -12,7 +13,7 @@ function DetailEmploye({ userEmail, userRole, onLogout }) {
   useEffect(() => {
     console.log('🔄 Chargement profil employé #' + id);
     
-    fetch(`http://localhost:8000/api/employes/${id}`, { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/employes/${id}`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Employé non trouvé');
         return res.json();

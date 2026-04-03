@@ -1,6 +1,19 @@
 <?php
 // backend/src/Helpers.php
 
+/** URL publique du backend (avatars, liens). Sur Railway : définir PUBLIC_BASE_URL=https://xxx.up.railway.app */
+function app_public_base_url(): string {
+    $env = getenv('PUBLIC_BASE_URL');
+    if (is_string($env) && $env !== '') {
+        return rtrim($env, '/');
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $scheme = $https ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8000';
+    return $scheme . '://' . $host;
+}
+
 function respondJson($data, $status = 200) {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');

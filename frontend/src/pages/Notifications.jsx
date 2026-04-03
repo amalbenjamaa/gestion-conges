@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function Notifications({ userEmail, userRole, onLogout }) {
   const [notifications, setNotifications] = useState([]);
@@ -7,7 +8,7 @@ function Notifications({ userEmail, userRole, onLogout }) {
   const [loading, setLoading] = useState(true);
 
   const loadNotifications = () => {
-    fetch('http://localhost:8000/api/notifications', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/notifications`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         console.log('📬 Notifications:', data);
@@ -29,7 +30,7 @@ function Notifications({ userEmail, userRole, onLogout }) {
   }, []);
 
   const markAllAsRead = () => {
-    fetch('http://localhost:8000/api/notifications/mark-read', {
+    fetch(`${API_BASE_URL}/api/notifications/mark-read`, {
       method: 'POST',
       credentials: 'include'
     })
@@ -38,7 +39,7 @@ function Notifications({ userEmail, userRole, onLogout }) {
   };
 
   const markAsRead = (id) => {
-    fetch(`http://localhost:8000/api/notifications/${id}/read`, {
+    fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
       method: 'PATCH',
       credentials: 'include'
     })
@@ -47,7 +48,7 @@ function Notifications({ userEmail, userRole, onLogout }) {
   };
 
   const deleteNotification = (id) => {
-    fetch(`http://localhost:8000/api/notifications/${id}`, {
+    fetch(`${API_BASE_URL}/api/notifications/${id}`, {
       method: 'DELETE',
       credentials: 'include'
     })
@@ -57,7 +58,7 @@ function Notifications({ userEmail, userRole, onLogout }) {
 
   const deleteAllRead = () => {
     if (!confirm('Supprimer toutes les notifications lues ?')) return;
-    fetch('http://localhost:8000/api/notifications/delete-read', {
+    fetch(`${API_BASE_URL}/api/notifications/delete-read`, {
       method: 'DELETE',
       credentials: 'include'
     })

@@ -24,7 +24,7 @@ class AuthController {
         }
 
         $stmt = $this->pdo->prepare("
-            SELECT u.id, u.email, u.mot_de_passe, r.nom AS role
+            SELECT u.id, u.email, u.mot_de_passe, u.role_id, r.nom AS role
             FROM utilisateurs u
             JOIN roles r ON r.id = u.role_id
             WHERE LOWER(u.email) = LOWER(?)
@@ -43,6 +43,7 @@ class AuthController {
         $_SESSION['user_id'] = (int)$user['id'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_role'] = $user['role'];
+        $_SESSION['role_id'] = (int)$user['role_id'];
 
         respondJson([
             'id' => (int)$user['id'],
@@ -109,12 +110,18 @@ class AuthController {
         
         error_log("✅ User trouvé: {$user['email']}, Role ID: {$user['role_id']}");
         
+        $roleLabel = match ((int)$user['role_id']) {
+            2 => 'manager',
+            3 => 'admin',
+            default => 'employe',
+        };
+
         respondJson([
             'id' => $user['id'],
             'email' => $user['email'],
             'nom_complet' => $user['nom_complet'],
             'role_id' => $user['role_id'],
-            'role' => $user['role_id'] == 2 ? 'manager' : 'employe',
+            'role' => $roleLabel,
             'solde_total' => (int)$user['solde_total'],
             'solde_consomme' => (int)$user['solde_consomme'],
             'solde_restant' => (int)$user['solde_restant'],
@@ -162,7 +169,7 @@ class AuthController {
             respondJson(['error' => "Impossible d'enregistrer l'image"], 500);
         }
 
-        $avatarUrl = "http://localhost:8000/uploads/avatars/" . $filename;
+        $avatarUrl = app_public_base_url() . '/uploads/avatars/' . $filename;
         $stmt = $this->pdo->prepare("UPDATE utilisateurs SET avatar_url = ? WHERE id = ?");
         $stmt->execute([$avatarUrl, $userId]);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../apiBase.js';
 
 function SuiviCollaborateurs() {
   const [collaborateurs, setCollaborateurs] = useState([]);
@@ -12,7 +13,7 @@ function SuiviCollaborateurs() {
   const loadCollaborateurs = () => {
     setLoading(true);
     setError(null);
-    fetch('http://localhost:8000/api/collaborateurs', {
+    fetch(`${API_BASE_URL}/api/collaborateurs`, {
       credentials: 'include'
     })
       .then(res => {

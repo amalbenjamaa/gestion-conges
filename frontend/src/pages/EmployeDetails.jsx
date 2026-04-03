@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function EmployeDetails({ userEmail, userRole, onLogout }) {
   const { id } = useParams();
@@ -16,10 +17,28 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
     nom_complet: '',
     email: '',
     position: '',
+    telephone: '',
+    bureau: '',
     solde_total: 0,
     solde_consomme: 0
   });
   const [saving, setSaving] = useState(false);
+
+  const populateFormFromEmploye = useCallback((e) => {
+    if (!e) return;
+    const quota = Number(e.quota_annuel ?? e.solde_total ?? 0);
+    const consomme = Number(e.consomme ?? e.solde_consomme ?? 0);
+    const tel = e.telephone ?? e.numero_telephone;
+    setForm({
+      nom_complet: String(e.nom_complet ?? e.nom ?? '').trim(),
+      email: String(e.email ?? '').trim(),
+      position: e.position != null ? String(e.position) : '',
+      telephone: tel != null && tel !== '' ? String(tel).trim() : '',
+      bureau: e.bureau != null ? String(e.bureau) : '',
+      solde_total: Number.isFinite(quota) ? quota : 0,
+      solde_consomme: Number.isFinite(consomme) ? consomme : 0,
+    });
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,7 +47,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
         // 1. Récupérer les infos de l'employé (priorité /api/employes, fallback /api/collaborateurs)
         let list = [];
         try {
-          const res1 = await fetch('http://localhost:8000/api/employes', { credentials: 'include' });
+          const res1 = await fetch(`${API_BASE_URL}/api/employes`, { credentials: 'include' });
           if (res1.ok) {
             const data1 = await res1.json();
             list = Array.isArray(data1) ? data1 : (Array.isArray(data1?.employes) ? data1.employes : []);
@@ -36,21 +55,22 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
             throw new Error('fallback');
           }
         } catch {
-          const res2 = await fetch('http://localhost:8000/api/collaborateurs', { credentials: 'include' });
+          const res2 = await fetch(`${API_BASE_URL}/api/collaborateurs`, { credentials: 'include' });
           if (res2.ok) {
             const data2 = await res2.json();
             list = Array.isArray(data2) ? data2 : (Array.isArray(data2?.employes) ? data2.employes : []);
           }
         }
 
-        let found = list.find(e => e.id === parseInt(id));
+        const idNum = Number(id);
+        let found = list.find((row) => Number(row.id) === idNum);
 
         if (found) {
           setEmploye(found);
           
           // 2. Récupérer les demandes de cet employé
           // Seulement si l'employé est trouvé
-          const resReq = await fetch(`http://localhost:8000/api/requests?user_id=${id}`, { credentials: 'include' });
+          const resReq = await fetch(`${API_BASE_URL}/api/requests?user_id=${id}`, { credentials: 'include' });
           const dataReq = await resReq.json();
           setDemandes(Array.isArray(dataReq) ? dataReq : []);
         } else {
@@ -69,17 +89,9 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
 
   useEffect(() => {
     if (employe) {
-      const quota = employe.quota_annuel ?? employe.solde_total ?? 0;
-      const consomme = employe.consomme ?? employe.solde_consomme ?? 0;
-      setForm({
-        nom_complet: employe.nom || '',
-        email: employe.email || '',
-        position: employe.position || '',
-        solde_total: quota || 0,
-        solde_consomme: consomme || 0
-      });
+      populateFormFromEmploye(employe);
     }
-  }, [employe]);
+  }, [employe, populateFormFromEmploye]);
 
   const handleAvatarUpload = async (file) => {
     if (!file) return;
@@ -87,7 +99,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
     try {
       const fd = new FormData();
       fd.append('avatar', file);
-      const res = await fetch(`http://localhost:8000/api/employes/${id}/avatar`, {
+      const res = await fetch(`${API_BASE_URL}/api/employes/${id}/avatar`, {
         method: 'POST',
         credentials: 'include',
         body: fd,
@@ -107,7 +119,12 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === 'solde_total' || name === 'solde_consomme') {
+      const n = value === '' ? 0 : parseInt(value, 10);
+      setForm((prev) => ({ ...prev, [name]: Number.isNaN(n) ? prev[name] : n }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleEditSubmit = async (e) => {
@@ -120,10 +137,12 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
         nom_complet: form.nom_complet,
         email: form.email,
         position: form.position,
+        telephone: form.telephone.trim(),
+        bureau: form.bureau.trim(),
         solde_total: parseInt(form.solde_total, 10),
         solde_consomme: parseInt(form.solde_consomme, 10)
       };
-      const res = await fetch(`http://localhost:8000/api/employes/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/employes/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -133,18 +152,25 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
       if (!res.ok) {
         throw new Error(data.error || 'Erreur lors de la modification');
       }
-      setEmploye({
+      const nextEmploye = {
+        ...employe,
         id: data.id,
-        nom: data.nom_complet || form.nom_complet,
+        nom_complet: data.nom_complet ?? form.nom_complet,
+        nom: data.nom_complet ?? form.nom_complet,
         email: data.email || form.email,
-        position: data.position || form.position,
+        position: data.position ?? form.position,
+        telephone: data.telephone ?? data.numero_telephone ?? form.telephone,
+        numero_telephone: data.numero_telephone ?? data.telephone ?? form.telephone,
+        bureau: data.bureau ?? form.bureau,
         avatar_url: data.avatar_url || employe.avatar_url,
         solde_total: data.solde_total ?? payload.solde_total,
         solde_consomme: data.solde_consomme ?? payload.solde_consomme,
         quota_annuel: data.solde_total ?? payload.solde_total,
         consomme: data.solde_consomme ?? payload.solde_consomme,
         solde: (data.solde_total ?? payload.solde_total) - (data.solde_consomme ?? payload.solde_consomme)
-      });
+      };
+      setEmploye(nextEmploye);
+      populateFormFromEmploye(nextEmploye);
       setEditMode(false);
       setNotif({ type: 'success', message: 'Informations mises à jour' });
     } catch (err) {
@@ -162,7 +188,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
     setError('');
     setNotif(null);
     try {
-      const res = await fetch(`http://localhost:8000/api/employes/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/employes/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -241,7 +267,16 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
           {userRole === 'manager' && (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setEditMode((v) => !v)}
+                type="button"
+                onClick={() => {
+                  if (editMode) {
+                    populateFormFromEmploye(employe);
+                    setEditMode(false);
+                  } else {
+                    populateFormFromEmploye(employe);
+                    setEditMode(true);
+                  }
+                }}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors font-semibold shadow-sm"
               >
                 {editMode ? 'Annuler' : 'Modifier'}
@@ -265,7 +300,7 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
                 {employe.avatar_url ? (
                   <img src={employe.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  (employe.nom || employe.email || 'E').charAt(0).toUpperCase()
+                  (employe.nom_complet || employe.nom || employe.email || 'E').charAt(0).toUpperCase()
                 )}
               </div>
               <label className="absolute bottom-0 right-0 bg-white text-gray-700 p-1.5 rounded-full shadow-md cursor-pointer hover:bg-gray-50 border border-gray-200 transition-transform hover:scale-105">
@@ -283,21 +318,21 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
             </div>
             
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900">{employe.nom}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{employe.nom_complet || employe.nom || '—'}</h2>
               <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                    {employe.email}
                 </div>
-                {employe.position && (
+                {(employe.position || employe.bureau) && (
                   <div className="flex items-center gap-2">
                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                     {employe.position}
+                     {[employe.position, employe.bureau].filter(Boolean).join(' · ') || '—'}
                   </div>
                 )}
                 <div className="flex items-center gap-2">
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                   {employe.telephone || 'Non renseigné'}
+                   {employe.telephone || employe.numero_telephone || 'Non renseigné'}
                 </div>
               </div>
             </div>
@@ -356,6 +391,28 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
                 />
               </div>
               <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Téléphone</label>
+                <input
+                  type="tel"
+                  name="telephone"
+                  value={form.telephone}
+                  onChange={handleFormChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="+33 ..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Bureau</label>
+                <input
+                  type="text"
+                  name="bureau"
+                  value={form.bureau}
+                  onChange={handleFormChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Ex. Bureau 205"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Quota annuel (jours)</label>
                 <input
                   type="number"
@@ -390,7 +447,10 @@ function EmployeDetails({ userEmail, userRole, onLogout }) {
               </button>
               <button
                 type="button"
-                onClick={() => setEditMode(false)}
+                onClick={() => {
+                  populateFormFromEmploye(employe);
+                  setEditMode(false);
+                }}
                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
               >
                 Annuler

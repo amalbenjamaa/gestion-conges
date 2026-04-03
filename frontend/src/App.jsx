@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login';
+import { API_BASE_URL } from './apiBase.js';
 import Dashboard from './pages/Dashboard';
 import Statistiques from './pages/Statistiques';
 import NouvelleDemande from './pages/NouvelleDemande';
@@ -29,7 +30,7 @@ function App() {
 
   async function handleLogout() {
     try {
-      await fetch('http://localhost:8000/api/logout', {
+      await fetch(`${API_BASE_URL}/api/logout`, {
         method: 'POST',
         credentials: 'include',
       });

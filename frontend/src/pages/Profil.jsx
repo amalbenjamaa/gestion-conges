@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { API_BASE_URL } from '../apiBase.js';
 
 function Profil({ userEmail, userRole, onLogout }) {
   const [me, setMe] = useState(null);
@@ -9,7 +10,7 @@ function Profil({ userEmail, userRole, onLogout }) {
   const [uploadError, setUploadError] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/me', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/me`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         setMe(data);
@@ -29,7 +30,7 @@ function Profil({ userEmail, userRole, onLogout }) {
     try {
       const form = new FormData();
       form.append('avatar', file);
-      const res = await fetch('http://localhost:8000/api/me/avatar', {
+      const res = await fetch(`${API_BASE_URL}/api/me/avatar`, {
         method: 'POST',
         credentials: 'include',
         body: form

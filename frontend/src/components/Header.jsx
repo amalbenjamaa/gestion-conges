@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoMonconge from '../assets/monconge-logo.png';
+import { API_BASE_URL } from '../apiBase.js';
 
 function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [userAvatar, setUserAvatar] = useState(null);
   const [userInfo, setUserInfo] = useState({
@@ -16,7 +18,7 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
   // ... tous les useEffect existants (ne pas les modifier)
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/me', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/me`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setUserAvatar(data.avatar_url);
@@ -31,7 +33,7 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetch('http://localhost:8000/api/me', { credentials: 'include' })
+      fetch(`${API_BASE_URL}/api/me`, { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           if (data.avatar_url !== userAvatar) {
@@ -62,18 +64,57 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
     return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
   }, []);
 
-  useEffect(() => {
-    fetch('http://localhost:8000/api/notifications', { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        const list = Array.isArray(data?.notifications) ? data.notifications : (Array.isArray(data) ? data : []);
+  const loadNotifications = useCallback(() => {
+    fetch(`${API_BASE_URL}/api/notifications`, { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data?.notifications)
+          ? data.notifications
+          : Array.isArray(data)
+            ? data
+            : [];
         setNotifications(list);
+        if (typeof data?.unread_count === 'number') {
+          setUnreadCount(data.unread_count);
+        } else {
+          setUnreadCount(
+            list.filter((n) => {
+              const v = n.is_read;
+              if (typeof v === 'boolean') return !v;
+              return Number(v) !== 1;
+            }).length
+          );
+        }
       })
       .catch(() => {});
-  }, [userRole]);
+  }, []);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 20000);
+    return () => clearInterval(interval);
+  }, [userEmail, loadNotifications]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const onFocus = () => loadNotifications();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [userEmail, loadNotifications]);
+
+  useEffect(() => {
+    const refresh = () => loadNotifications();
+    window.addEventListener('demandeCreated', refresh);
+    window.addEventListener('demandeStatusChanged', refresh);
+    return () => {
+      window.removeEventListener('demandeCreated', refresh);
+      window.removeEventListener('demandeStatusChanged', refresh);
+    };
+  }, [loadNotifications]);
 
   const handleLogout = () => {
-    fetch('http://localhost:8000/api/logout', {
+    fetch(`${API_BASE_URL}/api/logout`, {
       method: 'POST',
       credentials: 'include'
     })
@@ -87,15 +128,15 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
       });
   };
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
   const markAllAsRead = async () => {
     try {
-      await fetch('http://localhost:8000/api/notifications/mark-read', {
+      await fetch(`${API_BASE_URL}/api/notifications/mark-read`, {
         method: 'POST',
         credentials: 'include'
       });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+      loadNotifications();
     } catch (err) {
       console.error('Erreur marquage notifications:', err);
     }
@@ -156,8 +197,8 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
-                      {unreadCount}
+                    <span className="absolute -top-1 -right-1 min-w-[1rem] sm:min-w-[1.25rem] h-4 sm:h-5 px-0.5 bg-red-500 text-white text-[10px] sm:text-xs font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
                 </button>
@@ -184,17 +225,26 @@ function Header({ userEmail, userRole, onLogout, onToggleSidebar }) {
                       </div>
                     ) : (
                       <div className="max-h-96 overflow-y-auto">
-                        {notifications.slice(0, 5).map((notif) => (
+                        {notifications.slice(0, 10).map((notif) => {
+                          const isUnread =
+                            typeof notif.is_read === 'boolean'
+                              ? !notif.is_read
+                              : Number(notif.is_read) !== 1;
+                          return (
                           <div
                             key={notif.id}
-                            className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors ${!notif.is_read ? 'bg-blue-50' : ''}`}
+                            className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors ${isUnread ? 'bg-blue-50' : ''}`}
                           >
+                            {notif.titre && (
+                              <p className="text-xs font-semibold text-blue-700 mb-0.5">{notif.titre}</p>
+                            )}
                             <p className="text-sm text-gray-900 font-medium">{notif.message}</p>
                             <p className="text-xs text-gray-500 mt-1">
-                              {notif.created_at ? new Date(notif.created_at).toLocaleDateString('fr-FR') : ''}
+                              {notif.created_at ? new Date(notif.created_at).toLocaleString('fr-FR') : ''}
                             </p>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

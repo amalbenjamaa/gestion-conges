@@ -1,8 +1,35 @@
 <?php
-// Autoriser localhost:5173 et 4173 en dev
-$origin = $_SERVER['HTTP_ORIGIN'] ?? 'http://localhost:4173';
-$allowed = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173', 'http://127.0.0.1:4173'];
-header('Access-Control-Allow-Origin: ' . (in_array($origin, $allowed, true) ? $origin : 'http://localhost:4173'));
+// CORS : dev local + production (Vercel, etc.) via FRONTEND_URL ou FRONTEND_ORIGINS (séparés par des virgules)
+$allowed = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:4173',
+    'http://127.0.0.1:4173',
+];
+$single = getenv('FRONTEND_URL');
+if (is_string($single) && $single !== '') {
+    $allowed[] = rtrim(trim($single), '/');
+}
+$extra = getenv('FRONTEND_ORIGINS');
+if (is_string($extra) && $extra !== '') {
+    foreach (array_map('trim', explode(',', $extra)) as $o) {
+        if ($o !== '') {
+            $allowed[] = rtrim($o, '/');
+        }
+    }
+}
+$allowed = array_values(array_unique($allowed));
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($origin !== '' && !in_array($origin, $allowed, true)) {
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Origin non autorisée'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if ($origin !== '') {
+    header('Access-Control-Allow-Origin: ' . $origin);
+}
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -11,6 +38,22 @@ header('Content-Type: application/json; charset=utf-8');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
+}
+
+// Sessions : cookies cross-site (Vercel → Railway) = SameSite=None + Secure
+$crossSite = getenv('SESSION_CROSS_SITE');
+$useCrossSite = ($crossSite === '1' || strcasecmp((string)$crossSite, 'true') === 0);
+if ($useCrossSite) {
+    ini_set('session.cookie_samesite', 'None');
+    ini_set('session.cookie_secure', '1');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'None',
+    ]);
 }
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -148,7 +191,7 @@ if ($path === '/api/me/avatar' && $method === 'POST') {
         respondJson(['error' => 'Erreur lors du téléchargement'], 500);
         exit;
     }
-    $avatarUrl = 'http://localhost:8000/uploads/avatars/' . $filename;
+    $avatarUrl = app_public_base_url() . '/uploads/avatars/' . $filename;
     try {
         $pdo = Database::getPdo();
         $stmt = $pdo->prepare("UPDATE utilisateurs SET avatar_url = ? WHERE id = ?");
@@ -185,6 +228,23 @@ if ($path === '/api/collaborateurs' && $method === 'GET') {
     exit;
 }
 
+// ============ EMPLOYÉ (détail : mise à jour, suppression, avatar) ============
+if (preg_match('#^/api/employes/(\d+)/avatar$#', $path, $m) && $method === 'POST') {
+    error_log("→ Route: EMPLOYE AVATAR #{$m[1]}");
+    $userController->uploadEmployeAvatar((int)$m[1]);
+    exit;
+}
+if (preg_match('#^/api/employes/(\d+)$#', $path, $m) && in_array($method, ['PUT', 'PATCH'], true)) {
+    error_log("→ Route: UPDATE EMPLOYE #{$m[1]}");
+    $userController->updateEmploye((int)$m[1], $body ?? []);
+    exit;
+}
+if (preg_match('#^/api/employes/(\d+)$#', $path, $m) && $method === 'DELETE') {
+    error_log("→ Route: DELETE EMPLOYE #{$m[1]}");
+    $userController->deleteEmploye((int)$m[1]);
+    exit;
+}
+
 // ============ DEMANDES ============
 if ($path === '/api/requests/recent' && $method === 'GET') {
     error_log("→ Route: RECENT REQUESTS");
@@ -217,7 +277,7 @@ if (preg_match('#^/api/requests/(\d+)/status$#', $path, $matches) && $method ===
     $requestId = (int)$matches[1];
     error_log("→ Route: UPDATE STATUS #$requestId");
     $status = $body['status'] ?? null;
-    $comment = $body['comment'] ?? null;
+    $comment = $body['comment'] ?? $body['handle_comment'] ?? null;
     error_log("Status demandé: $status");
     if (!in_array($status, ['validee', 'refusee'])) {
         respondJson(['error' => 'Statut invalide'], 400);

@@ -12,6 +12,14 @@ class RequestController
         $this->pdo = Database::getPdo();
     }
 
+    /** Manager (2) ou admin (3) */
+    private function isManagerOrAdmin(): bool
+    {
+        $rid = isset($_SESSION['role_id']) ? (int)$_SESSION['role_id'] : 0;
+
+        return in_array($rid, [2, 3], true);
+    }
+
     // ✅ Lister les demandes (filtrage par employé pour vue manager)
     public function listRequests(array $query = [])
     {
@@ -20,8 +28,8 @@ class RequestController
                 respondJson(['error' => 'Non authentifié'], 401);
                 return;
             }
-            // Seuls les managers peuvent consulter l'historique d'un employé
-            if (!isset($_SESSION['role_id']) || (int)$_SESSION['role_id'] !== 2) {
+            // Seuls les managers / admins peuvent consulter l'historique d'un employé
+            if (!$this->isManagerOrAdmin()) {
                 respondJson(['error' => 'Non autorisé'], 403);
                 return;
             }
@@ -55,7 +63,16 @@ class RequestController
     {
         try {
             error_log("=== GET PENDING REQUESTS ===");
-            
+
+            if (!isset($_SESSION['user_id'])) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
+            if (!$this->isManagerOrAdmin()) {
+                respondJson(['error' => 'Non autorisé'], 403);
+                return;
+            }
+
             $sql = "
                 SELECT 
                     d.*,
@@ -91,7 +108,16 @@ class RequestController
     {
         try {
             error_log("=== GET RECENT REQUESTS ===");
-            
+
+            if (!isset($_SESSION['user_id'])) {
+                respondJson(['error' => 'Non authentifié'], 401);
+                return;
+            }
+            if (!$this->isManagerOrAdmin()) {
+                respondJson(['error' => 'Non autorisé'], 403);
+                return;
+            }
+
             $sql = "
                 SELECT 
                     d.*,
@@ -213,13 +239,16 @@ class RequestController
         try {
             require_once __DIR__ . '/NotificationController.php';
             $notif = new NotificationController();
-            $stmtManagers = $this->pdo->query("SELECT id FROM utilisateurs WHERE role_id = 2");
+            $stmtManagers = $this->pdo->query("SELECT id FROM utilisateurs WHERE role_id IN (2, 3)");
             $managers = $stmtManagers->fetchAll(PDO::FETCH_COLUMN);
             $stmtUser = $this->pdo->prepare("SELECT nom_complet FROM utilisateurs WHERE id = ?");
             $stmtUser->execute([$userId]);
             $userName = $stmtUser->fetchColumn() ?: 'Un employé';
-            $titre = 'Nouvelle demande';
-            $message = "$userName a soumis une demande du {$data['date_debut']} au {$data['date_fin']}";
+            $stmtTc = $this->pdo->prepare('SELECT nom FROM types_conges WHERE id = ?');
+            $stmtTc->execute([(int)$data['type_id']]);
+            $typeNom = $stmtTc->fetchColumn() ?: 'Congé';
+            $titre = 'Nouvelle demande de congé';
+            $message = "{$userName} a soumis une demande « {$typeNom} » du {$data['date_debut']} au {$data['date_fin']}.";
             foreach ($managers as $mid) {
                 $notif->create((int)$mid, $titre, $message, 'info');
             }
@@ -250,7 +279,7 @@ class RequestController
                 return;
             }
             
-            if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 2) {
+            if (!$this->isManagerOrAdmin()) {
                 error_log("❌ Non autorisé - Role: " . ($_SESSION['role_id'] ?? 'aucun'));
                 respondJson(['error' => 'Seul un manager peut valider/refuser'], 403);
                 return;
@@ -300,9 +329,14 @@ class RequestController
             try {
                 require_once __DIR__ . '/NotificationController.php';
                 $notif = new NotificationController();
-                $titre = 'Demande traitée';
+                $titre = $newStatus === 'validee' ? 'Demande acceptée' : 'Demande refusée';
                 $msgStatus = $newStatus === 'validee' ? 'acceptée' : 'refusée';
-                $message = "Votre demande (#$requestId) a été $msgStatus.";
+                $stmtTc = $this->pdo->prepare('SELECT nom FROM types_conges WHERE id = ?');
+                $stmtTc->execute([(int)$demande['type_id']]);
+                $typeNom = $stmtTc->fetchColumn() ?: 'Congé';
+                $debut = $demande['date_debut'] ?? '';
+                $fin = $demande['date_fin'] ?? '';
+                $message = "Votre demande « {$typeNom} » du {$debut} au {$fin} (#{$requestId}) a été {$msgStatus}.";
                 $notif->create((int)$demande['utilisateur_id'], $titre, $message, $newStatus === 'validee' ? 'success' : 'warning');
             } catch (Exception $e) {
                 error_log("❌ Erreur notification updateStatus: " . $e->getMessage());

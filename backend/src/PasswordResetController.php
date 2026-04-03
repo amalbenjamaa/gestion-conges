@@ -10,6 +10,52 @@ class PasswordResetController {
         $this->ensureTable();
     }
 
+    private function normalizeEmail(string $email): string
+    {
+        return strtolower(trim($email));
+    }
+
+    /** Chiffres uniquement ; +33xxxxxxxxxx → 0xxxxxxxxxx (France) */
+    private function normalizePhoneDigits(?string $phone): string
+    {
+        if ($phone === null || $phone === '') {
+            return '';
+        }
+        $d = preg_replace('/\D+/', '', $phone);
+        if (str_starts_with($d, '33') && strlen($d) >= 10) {
+            $d = '0' . substr($d, 2);
+        }
+
+        return $d;
+    }
+
+    /** Récupère le téléphone (colonne numero_telephone ou telephone selon schéma). */
+    private function findUserPhoneByEmail(string $emailNorm): ?array
+    {
+        $stmt = $this->pdo->prepare('
+            SELECT id, numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)
+        ');
+        $stmt->execute([$emailNorm]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user && !empty(trim((string)($user['numero_telephone'] ?? '')))) {
+            return ['id' => $user['id'], 'phone' => trim((string)$user['numero_telephone'])];
+        }
+        try {
+            $stmt = $this->pdo->prepare('
+                SELECT id, telephone AS numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)
+            ');
+            $stmt->execute([$emailNorm]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user && !empty(trim((string)($user['numero_telephone'] ?? '')))) {
+                return ['id' => $user['id'], 'phone' => trim((string)$user['numero_telephone'])];
+            }
+        } catch (Throwable $e) {
+            // colonne telephone absente
+        }
+
+        return null;
+    }
+
     private function ensureTable() {
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS password_reset_codes (
@@ -29,58 +75,45 @@ class PasswordResetController {
 
     // Étape 1 : Demander un code de réinitialisation
     public function requestReset($data) {
-        $email = trim($data['email'] ?? '');
-        
+        $emailRaw = trim($data['email'] ?? '');
+        $email = $this->normalizeEmail($emailRaw);
+
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             respondJson(['error' => 'Email invalide'], 400);
             return;
         }
 
-        $user = null;
-        try {
-            $stmt = $this->pdo->prepare("SELECT id, numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {
-            try {
-                $stmt = $this->pdo->prepare("SELECT id, telephone as numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
-                $stmt->execute([$email]);
-                $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            } catch (Exception $e2) {
-                $user = null;
-            }
-        }
-
-        if (!$user) {
+        $stmt = $this->pdo->prepare('SELECT id FROM utilisateurs WHERE LOWER(email) = LOWER(?)');
+        $stmt->execute([$email]);
+        if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
             respondJson(['error' => 'Aucun compte associé à cet email'], 404);
             return;
         }
 
-        if (empty($user['numero_telephone'])) {
+        $user = $this->findUserPhoneByEmail($email);
+
+        if (!$user) {
             respondJson(['error' => 'Aucun numéro de téléphone enregistré pour ce compte'], 400);
             return;
         }
 
         // Générer un code à 6 chiffres
-        $code = str_pad((string)rand(0, 999999), 6, '0', STR_PAD_LEFT);
-        
-        // Expiration : 15 minutes
-        $expireAt = date('Y-m-d H:i:s', time() + 900);
+        $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Supprimer les anciens codes non utilisés pour cet email
-        $this->pdo->prepare("DELETE FROM password_reset_codes WHERE email = ? AND used = 0")
+        // Supprimer les anciens codes non utilisés pour cet email (toujours stocker l’email en minuscules)
+        $this->pdo->prepare('DELETE FROM password_reset_codes WHERE LOWER(email) = ? AND used = 0')
             ->execute([$email]);
 
-        // Insérer le nouveau code
-        $stmt = $this->pdo->prepare("
-            INSERT INTO password_reset_codes (email, code, expire_at) 
-            VALUES (?, ?, ?)
-        ");
-        $stmt->execute([$email, $code, $expireAt]);
+        // Expiration côté MySQL (évite décalage fuseau PHP / serveur)
+        $stmt = $this->pdo->prepare('
+            INSERT INTO password_reset_codes (email, code, expire_at)
+            VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))
+        ');
+        $stmt->execute([$email, $code]);
 
         // Masquer le numéro de téléphone (afficher seulement les 4 derniers chiffres)
-        $phone = $user['numero_telephone'];
-        $phoneHint = '***' . substr($phone, -4);
+        $digits = $this->normalizePhoneDigits($user['phone']);
+        $phoneHint = strlen($digits) >= 4 ? '***' . substr($digits, -4) : '****';
 
         respondJson([
             'success' => true,
@@ -92,51 +125,52 @@ class PasswordResetController {
 
     // Étape 2 : Vérifier le téléphone et le code
     public function verifyPhone($data) {
-        $email = trim($data['email'] ?? '');
+        $email = $this->normalizeEmail(trim($data['email'] ?? ''));
         $phone = trim($data['phone'] ?? '');
-        $code = trim($data['code'] ?? '');
+        $codeRaw = preg_replace('/\D+/', '', trim($data['code'] ?? ''));
 
-        if (!$email || !$phone || !$code) {
+        if (!$email || !$phone || $codeRaw === '') {
             respondJson(['error' => 'Email, téléphone et code requis'], 400);
             return;
         }
 
-        // Vérifier que l'email et le téléphone correspondent
-        $user = null;
-        try {
-            $stmt = $this->pdo->prepare("SELECT id, numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {
-            try {
-                $stmt = $this->pdo->prepare("SELECT id, telephone as numero_telephone FROM utilisateurs WHERE LOWER(email) = LOWER(?)");
-                $stmt->execute([$email]);
-                $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            } catch (Exception $e2) {
-                $user = null;
-            }
-        }
-
-        if (!$user) {
+        $stmt = $this->pdo->prepare('SELECT id FROM utilisateurs WHERE LOWER(email) = LOWER(?)');
+        $stmt->execute([$email]);
+        if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
             respondJson(['error' => 'Email invalide'], 404);
             return;
         }
 
-        // Vérifier que le téléphone correspond
-        if ($user['numero_telephone'] !== $phone) {
+        $user = $this->findUserPhoneByEmail($email);
+
+        if (!$user) {
+            respondJson(['error' => 'Aucun numéro de téléphone enregistré pour ce compte'], 400);
+            return;
+        }
+
+        $dbPhone = $this->normalizePhoneDigits($user['phone']);
+        $inPhone = $this->normalizePhoneDigits($phone);
+        if ($dbPhone === '' || $dbPhone !== $inPhone) {
             respondJson(['error' => 'Le numéro de téléphone ne correspond pas à cet email'], 403);
             return;
         }
 
-        // Vérifier le code
-        $stmt = $this->pdo->prepare("
-            SELECT id 
-            FROM password_reset_codes 
-            WHERE email = ? 
-            AND code = ? 
-            AND used = 0 
+        if (strlen($codeRaw) > 6) {
+            $codeRaw = substr($codeRaw, -6);
+        } elseif (strlen($codeRaw) < 6) {
+            $codeRaw = str_pad($codeRaw, 6, '0', STR_PAD_LEFT);
+        }
+        $code = $codeRaw;
+
+        // Même email normalisé (minuscules) qu’à l’insertion
+        $stmt = $this->pdo->prepare('
+            SELECT id
+            FROM password_reset_codes
+            WHERE LOWER(email) = ?
+            AND code = ?
+            AND used = 0
             AND expire_at > NOW()
-        ");
+        ');
         $stmt->execute([$email, $code]);
         $resetCode = $stmt->fetch(PDO::FETCH_ASSOC);
 
